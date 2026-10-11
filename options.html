@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Customizable TAB — Admin</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>Customizable TAB <small>Admin Panel</small> <span id="storage"></span></h1>
+
+  <section>
+    <h2>Links</h2>
+    <form id="addForm">
+      <input id="lTitle" placeholder="Label / Title" required>
+      <input id="lUrl" placeholder="Direct URL (https://...)" required>
+      <input id="lIcon" placeholder="Icon URL or emoji (optional)">
+      <select id="lGroup" title="Group"></select>
+      <button>Add</button>
+    </form>
+    <div id="groups"></div>
+    <form id="groupForm">
+      <input id="gName" placeholder="New group name (e.g. Work, Dev, Social)" required>
+      <button>Add group</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Wallpaper &amp; Display</h2>
+    <div class="row">
+      <label><input type="radio" name="wpMode" value="daily"> Auto-Daily (Bing, midnight rotation)</label>
+      <label><input type="radio" name="wpMode" value="url"> Custom Web URL</label>
+      <label><input type="radio" name="wpMode" value="file"> Local File Upload</label>
+      <label><input type="radio" name="wpMode" value="gradient"> Solid / CSS Gradient</label>
+    </div>
+    <div class="mode" data-mode="url"><input id="wpUrl" placeholder="https://example.com/image.jpg"></div>
+    <div class="mode" data-mode="file"><input id="wpFile" type="file" accept="image/*"> <span id="fileStatus"></span></div>
+    <div class="mode" data-mode="gradient"><input id="gradient" placeholder="#222 or linear-gradient(...)"></div>
+    <label>Dim: <span id="dimVal"></span>% <input id="dim" type="range" min="0" max="80"></label>
+    <label>Blur: <span id="blurVal"></span>px <input id="blur" type="range" min="0" max="25"></label>
+    <div id="preview"><div id="previewDim"></div><span>Preview</span></div>
+  </section>
+
+  <section>
+    <h2>Widgets</h2>
+    <div class="row">
+      <label><input type="checkbox" data-widget="weather"> Weather</label>
+      <label><input type="checkbox" data-widget="todo"> To-do list</label>
+      <label><input type="checkbox" data-widget="notes"> Quick notes</label>
+      <label><input type="checkbox" data-widget="pomodoro"> Pomodoro timer</label>
+    </div>
+    <div class="row">
+      <input id="weatherCity" placeholder="Weather city (e.g. Bhubaneswar)">
+      <select id="tempUnit"><option value="celsius">°C</option><option value="fahrenheit">°F</option></select>
+    </div>
+  </section>
+
+  <section>
+    <h2>Search, Clock &amp; Shortcuts</h2>
+    <label>Default engine: <select id="engine"></select></label>
+    <label><input id="clock24" type="checkbox"> 24-hour clock</label>
+    <label><input id="shortcuts" type="checkbox"> Keyboard shortcuts (1–9 open links, / focuses search)</label>
+  </section>
+
+  <section>
+    <h2>Backup</h2>
+    <div class="row">
+      <button id="export">Export .json</button>
+      <label class="btn">Import .json <input id="import" type="file" accept=".json,application/json" hidden></label>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+  <script src="shared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
