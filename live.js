@@ -1063,14 +1063,21 @@ const Live = (() => {
   // Adaptive resolution: if frames arrive late (busy CPU/GPU), render fewer pixels; recover slowly
   let dyn = 1, gapAvg = 0, settleUntil = 0, goodSince = 0;
   const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-  addEventListener("pointermove", (e) => { mouse.tx = (e.clientX / innerWidth) * 2 - 1; mouse.ty = (e.clientY / innerHeight) * 2 - 1; });
+  // After a minute without input the scene idles at a low frame rate, freeing CPU/GPU for other apps
+  const IDLE_MS = 60e3, IDLE_FPS = 12;
+  let lastInput = performance.now();
+  const wake = () => { lastInput = performance.now(); };
+  addEventListener("pointermove", (e) => { wake(); mouse.tx = (e.clientX / innerWidth) * 2 - 1; mouse.ty = (e.clientY / innerHeight) * 2 - 1; });
+  for (const type of ["keydown", "pointerdown", "wheel"]) addEventListener(type, wake, { passive: true });
 
   const now = () => (performance.now() - t0) / 1000;
   const drawOnce = () => scene && scene.draw(now(), canvas.width, canvas.height, mouse, 0);
 
   function frame(ts) {
     raf = requestAnimationFrame(frame);
-    if (ts - last < 1000 / q.fps - 2) return;
+    const idle = ts - lastInput > IDLE_MS;
+    if (ts - last < 1000 / (idle ? IDLE_FPS : q.fps) - 2) return;
+    if (idle) settleUntil = ts + 1500; // slow frames on purpose: don't let adaptive resolution react
     const gap = ts - last, dt = Math.min(0.1, gap / 1000);
     last = ts;
     adapt(gap, ts);
