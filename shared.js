@@ -46,6 +46,8 @@ const DEFAULTS = {
   aiTools: true, // AI Tools launcher in the bottom-left corner
   dailySource: "bing", // bing | apod | wikimedia | picsum (see DAILY_SOURCES)
   nasaKey: "", // optional personal key for NASA APOD (DEMO_KEY is shared and rate-limited)
+  unsplashKey: "", // the user's own free Unsplash Access Key (required for the Unsplash source)
+  unsplashTopic: "nature", // nature | space | any search words
   sceneSchedule: { on: false, morning: "ocean", day: "clouds", evening: "synthwave", night: "webcity" },
   smooth: true, // drop glass blur over animated wallpapers (blur is re-rendered every frame)
   suggest: false, // search suggestions (asks for permission to the suggestion host)
@@ -214,6 +216,23 @@ const DAILY_SOURCES = {
       }));
     }
   },
+  unsplash: {
+    name: "Unsplash",
+    variant: (s) => `${s.unsplashTopic}|${s.unsplashKey ? "key" : "nokey"}`, // new topic or newly added key → refetch today
+    async load(s) {
+      if (!s.unsplashKey) throw new Error("add your free Unsplash Access Key in settings");
+      const q = new URLSearchParams({ query: s.unsplashTopic || "nature", count: 8, orientation: "landscape", content_filter: "high", client_id: s.unsplashKey });
+      const photos = await getJSON(`https://api.unsplash.com/photos/random?${q}`);
+      const ref = "utm_source=customizable_tab&utm_medium=referral"; // Unsplash attribution requirement
+      return photos.map((p) => ({
+        url: `${p.urls.raw}&w=2560&q=80&fm=jpg&fit=crop`,
+        title: p.alt_description || p.description || "",
+        link: `${p.links.html}?${ref}`,
+        author: p.user.name, authorLink: `${p.user.links.html}?${ref}`, siteName: "Unsplash", siteLink: `https://unsplash.com/?${ref}`,
+        ping: p.links.download_location // must be called when the photo is shown (Unsplash API guideline)
+      }));
+    }
+  },
   picsum: {
     name: "Lorem Picsum (Unsplash photos)",
     async load() {
@@ -227,7 +246,8 @@ const DAILY_SOURCES = {
 // by the background worker). If the source is down or has nothing usable, the next source is tried;
 // offline, the last good list is kept.
 async function dailyList(s) {
-  const source = DAILY_SOURCES[s.dailySource] ? s.dailySource : "bing", key = `${isoDate()}|${source}`;
+  const source = DAILY_SOURCES[s.dailySource] ? s.dailySource : "bing";
+  const key = `${isoDate()}|${source}|${DAILY_SOURCES[source].variant?.(s) || ""}`;
   const data = await chrome.storage.local.get(["dailyKey", "wallpaperList"]);
   if (data.dailyKey === key && data.wallpaperList?.length) return data.wallpaperList;
   for (const name of [source, ...["bing", "wikimedia", "picsum"].filter((n) => n !== source)]) {

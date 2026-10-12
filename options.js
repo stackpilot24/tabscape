@@ -223,7 +223,7 @@ document.querySelectorAll("[name=wpMode]").forEach((r) => {
 });
 for (const [k, name] of Object.entries(LIVE_SCENES)) $("liveScene").add(new Option(name, k));
 for (const k of ["liveScene", "liveQuality"]) $(k).onchange = (e) => save({ [k]: e.target.value }).then(renderPreview);
-const SOURCE_PAGES = { bing: "https://www.bing.com", apod: "https://apod.nasa.gov/apod/", wikimedia: "https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day", picsum: "https://picsum.photos" };
+const SOURCE_PAGES = { unsplash: "https://unsplash.com", bing: "https://www.bing.com", apod: "https://apod.nasa.gov/apod/", wikimedia: "https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day", picsum: "https://picsum.photos" };
 for (const [k, src] of Object.entries(DAILY_SOURCES)) $("dailySource").add(new Option(src.name, k));
 $("dailySource").onchange = async (e) => {
   await save({ dailySource: e.target.value }, "Source changed — open a new tab to see today's picture");
@@ -232,10 +232,23 @@ $("dailySource").onchange = async (e) => {
   renderPreview();
 };
 $("nasaKey").onchange = (e) => save({ nasaKey: e.target.value.trim() });
+$("unsplashKey").onchange = (e) => save({ unsplashKey: e.target.value.trim() }, "Key saved — open a new tab to see today's photo");
+$("unsplashTopicPick").onchange = (e) => {
+  $("unsplashTopic").hidden = e.target.value !== "custom";
+  if (e.target.value === "custom") return $("unsplashTopic").focus();
+  save({ unsplashTopic: e.target.value }, `Topic: ${e.target.value}`);
+};
+$("unsplashTopic").onchange = (e) => save({ unsplashTopic: e.target.value.trim() || "nature" });
 function showSource() {
   $("sourceLink").textContent = "Visit source ↗";
   $("sourceLink").href = SOURCE_PAGES[S.dailySource];
   document.querySelector(".nasa").hidden = S.dailySource !== "apod";
+  document.querySelector(".unsplash").hidden = S.dailySource !== "unsplash";
+  const preset = ["nature", "space"].includes(S.unsplashTopic) ? S.unsplashTopic : "custom";
+  $("unsplashTopicPick").value = preset;
+  $("unsplashTopic").hidden = preset !== "custom";
+  $("unsplashTopic").value = preset === "custom" ? S.unsplashTopic : "";
+  $("unsplashKey").value = S.unsplashKey;
 }
 document.querySelectorAll("[data-slot]").forEach((sel) => {
   for (const [k, name] of Object.entries(LIVE_SCENES)) sel.add(new Option(name, k));

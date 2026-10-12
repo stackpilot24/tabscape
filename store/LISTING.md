@@ -38,7 +38,7 @@ Live 3D wallpapers, an app dock, drag-anywhere widgets and focus tools on every 
 
 Turn every new tab into a dashboard that feels alive.
 
-🌌 **Live 3D wallpapers.** Sixteen animated scenes that react to your mouse. They include Web City, Festival Lights, Snowfall, Monsoon Rain, Ocean (its sun and sky follow your real clock), Cloudy Sky, Underwater, Fireflies, Matrix Rain, Constellation, Galaxy, Synthwave and Aurora. Scenes can change by time of day. Or use a daily photo from Bing, NASA, Wikimedia Commons or Unsplash (via Picsum), your own image, or a looping video. Scenes pause when the tab is hidden and include a battery-saver mode.
+🌌 **Live 3D wallpapers.** Sixteen animated scenes that react to your mouse. They include Web City, Festival Lights, Snowfall, Monsoon Rain, Ocean (its sun and sky follow your real clock), Cloudy Sky, Underwater, Fireflies, Matrix Rain, Constellation, Galaxy, Synthwave and Aurora. Scenes can change by time of day. Or use a daily photo from Unsplash (Nature, Space or your own topic), Bing, NASA, Wikimedia Commons or Lorem Picsum, your own image, or a looping video. Scenes pause when the tab is hidden and include a battery-saver mode.
 
 ⚓ **App dock.** Colorful one-click buttons for the apps you use most, such as YouTube, Gmail, WhatsApp, Telegram and Discord. Lock the dock so it never changes.
 

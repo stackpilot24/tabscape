@@ -219,7 +219,7 @@ async function applyWallpaper() {
   bg.style.filter = $("live").style.filter = blur;
   $("dim").style.opacity = S.dim / 100;
   $("nextWp").hidden = !["daily", "live"].includes(S.wpMode);
-  $("credit").textContent = "";
+  $("credit").replaceChildren();
 
   if (S.wpMode === "live") {
     bgKey = "";
@@ -242,11 +242,7 @@ async function applyWallpaper() {
     }
     if (f) url = URL.createObjectURL(f);
   }
-  if (credit) {
-    $("credit").textContent = "📷 " + (credit.title || DAILY_SOURCES[S.dailySource]?.name || "Photo of the day");
-    $("credit").href = credit.link || "#";
-    $("credit").title = "Open the photo's source page";
-  }
+  if (credit) showCredit(credit);
 
   const key = url ? (S.wpMode === "file" ? "file:" + S.wpFileAt : url) : S.gradient;
   if (key === bgKey) return;
@@ -258,6 +254,28 @@ async function applyWallpaper() {
   bg.style.backgroundImage = url ? `url("${url}")` : S.gradient;
   bg.classList.toggle("photo", !!url);
   requestAnimationFrame(() => bg.classList.add("show"));
+}
+
+// "📷 Photo by <photographer> on <site>" when the source names the author, else the title linking to its page
+function showCredit(p) {
+  const a = (text, href) => { const l = el("a", "", text); l.href = href; l.target = "_blank"; l.rel = "noopener"; return l; };
+  const box = $("credit");
+  if (p.author) {
+    box.append("📷 Photo by ", a(p.author, p.authorLink), " on ", a(p.siteName, p.siteLink));
+    box.title = p.title;
+  } else {
+    box.append(a("📷 " + (p.title || DAILY_SOURCES[S.dailySource]?.name || "Photo of the day"), p.link || "#"));
+    box.title = "Open the photo's source page";
+  }
+  if (p.ping && S.unsplashKey) reportView(p.ping);
+}
+
+// Unsplash asks apps to hit a photo's download_location once when it is used; remember which were sent
+async function reportView(ping) {
+  const { pinged = [] } = await chrome.storage.local.get("pinged");
+  if (pinged.includes(ping)) return;
+  fetch(`${ping}${ping.includes("?") ? "&" : "?"}client_id=${encodeURIComponent(S.unsplashKey)}`).catch(() => {});
+  chrome.storage.local.set({ pinged: [...pinged, ping].slice(-50) });
 }
 
 async function nextWallpaper() {
@@ -368,7 +386,8 @@ function paletteActions() {
   ];
   for (const [k, name] of Object.entries(LIVE_SCENES)) acts.push({ label: `Live wallpaper: ${name}`, icon: "🌌", run: () => set({ wpMode: "live", liveScene: k, sceneSchedule: { ...S.sceneSchedule, on: false } }) });
   acts.push({ label: "Live wallpaper: change by time of day", icon: "🕰", run: () => set({ wpMode: "live", sceneSchedule: { ...S.sceneSchedule, on: true } }) });
-  for (const [k, src] of Object.entries(DAILY_SOURCES)) acts.push({ label: `Daily photo: ${src.name}`, icon: "🌄", run: () => set({ wpMode: "daily", dailySource: k }) });
+  for (const [k, src] of Object.entries(DAILY_SOURCES)) if (k !== "unsplash") acts.push({ label: `Daily photo: ${src.name}`, icon: "🌄", run: () => set({ wpMode: "daily", dailySource: k }) });
+  for (const topic of ["nature", "space"]) acts.push({ label: `Daily photo: Unsplash ${topic}`, icon: "🌄", run: () => set({ wpMode: "daily", dailySource: "unsplash", unsplashTopic: topic }) });
   for (const l of ["centered", "sidebar", "minimal"]) acts.push({ label: `Layout: ${l[0].toUpperCase() + l.slice(1)}`, icon: "▦", run: () => set({ layout: l }) });
   for (const name of Object.keys(THEME_PRESETS)) acts.push({ label: `Theme: ${name}`, icon: "🎭", run: () => set(THEME_PRESETS[name]) });
   for (const name of ["", ...S.profiles.map((p) => p.name)]) {

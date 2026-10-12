@@ -88,6 +88,14 @@
         <label>Source <select id="dailySource"></select></label>
         <a id="sourceLink" target="_blank" rel="noopener"></a>
       </div>
+      <div class="unsplash">
+        <div class="row">
+          <label>Topic <select id="unsplashTopicPick"><option value="nature">🌿 Nature</option><option value="space">🌌 Space</option><option value="custom">Custom…</option></select></label>
+          <input id="unsplashTopic" placeholder="e.g. mountains, ocean, city night">
+        </div>
+        <label>Unsplash Access Key <input id="unsplashKey" placeholder="Paste your free Access Key"></label>
+        <p class="note">Free: sign in at <a href="https://unsplash.com/oauth/applications" target="_blank" rel="noopener">unsplash.com/oauth/applications</a> → New Application → copy the <b>Access Key</b>. One request per day is used; photos are credited to their photographers.</p>
+      </div>
       <label class="nasa">NASA API key (optional) <input id="nasaKey" placeholder="DEMO_KEY — get a free personal key at api.nasa.gov"></label>
       <p class="note">A new picture loads automatically just after midnight. Use the 🖼 button on the dashboard (or W) to browse recent days; the photo credit links to its source.</p>
     </div>
