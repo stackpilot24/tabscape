@@ -47,7 +47,10 @@ customizable-tab/
 ├── manifest.json         # Chrome Extension Manifest V3 configuration
 ├── newtab.html           # Main user-facing dashboard
 ├── newtab.css            # Dashboard styles (frosted cards, responsive grid)
-├── newtab.js             # Wallpaper scheduler, bookmark renderer, search logic
+├── newtab.js             # Wallpaper scheduler, bookmark renderer, search, palette, widgets
+├── widgetlayout.js       # Drag / resize / per-widget styling of dashboard widgets
+├── live.js               # Live 3D wallpaper scenes (WebGL + canvas)
+├── shared.js             # Settings defaults, sync storage, migrations
 ├── options.html          # Backend Admin Panel interface
 ├── options.css           # Admin Panel styles & layout
 ├── options.js            # Link CRUD operations, storage handlers, import/export
@@ -172,3 +175,23 @@ async function loadDailyWallpaper() {
 python build.py               # -> .dist/customizable-tab-<version>.zip
 python build.py --bump patch  # bump manifest version, then build
 ```
+
+## ✨ v1.2 Additions
+
+- **Live 3D Wallpapers:** Seven animated scenes that react to the mouse: Web City (night skyline with depth layers, a swaying web that leans toward the cursor, and a masked hero swinging across on web lines), Spiral galaxy, Aurora and Liquid (WebGL), plus Starfield warp, Synthwave and Dotted globe (canvas). Tinted by your accent color. Rendering pauses when the tab is hidden, caps resolution/frame rate per quality level (Battery / Balanced / Ultra), recovers from GPU context loss, and falls back to a 2D scene if WebGL is unavailable. With animations off or OS "reduce motion" on, a still frame is shown.
+- **Layouts:** Centered, Sidebar (widgets in a sticky right column), and Minimal (giant clock with a dock of link icons).
+- **Theme:** Accent color, card size (S/M/L), card style (Glass/Solid/Outline), personal greeting.
+- **Animations:** Wallpaper cross-fade, slow Ken Burns zoom and mouse parallax on photos, staggered entrance, 3D tilt + glare on link cards.
+- **Command Palette (`Ctrl+K`):** Fuzzy-search links and actions (change scene/layout, next wallpaper, zen mode, search the web).
+- **Customize Drawer:** Change background, scene, quality, layout, accent, cards and dim directly on the new tab page.
+- **Wallpaper Browser:** Step through the last 8 Bing daily images (`W` or the header button), with photo credit.
+- **Zen Mode (`Z`):** Hide everything but the clock.
+- **New Widgets:** Quote of the day, Calendar, World clock (configurable time zones).
+
+- **Video Wallpapers:** Upload a looping MP4/WebM (e.g. an animated wallpaper you own) in *Local Image / Video*.
+- **Auto-Location Weather:** Leave the city blank to use your current location (browser geolocation, falling back to IP lookup); hover for today's high/low.
+- **Admin Panel Navigation:** *Back to dashboard* button and a docked *Live preview* of the new tab that updates as you change settings.
+- **App Dock:** A fixed row of colored app buttons at the bottom center — YouTube, Gmail, Telegram, WhatsApp, Twitter (X) and Discord — always visible, one click to open.
+- **Free-Form Widgets:** The dashboard never scrolls; widgets float on top. Press `E` (or the grid button) to drag them anywhere, resize from the corner, and style each one with ⚙: background darkness & tint, blur, opacity, font, text size, text color, corners, border. *Style all* sets the default look; layouts are saved as screen percentages so they adapt to any display.
+
+Shortcuts: `1`–`9` open links · `/` search · `W` next wallpaper · `Z` zen · `C` customize · `E` arrange widgets · `Ctrl+K` palette · `Esc` close.

@@ -6,6 +6,14 @@
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
+  <nav id="topbar">
+    <button id="back" type="button">← Back to dashboard</button>
+    <button id="togglePreview" type="button">Show live preview</button>
+  </nav>
+  <aside id="livePreview" hidden>
+    <div class="lp-head">Live preview <small>— changes apply instantly</small></div>
+    <div class="lp-frame"><iframe id="lpFrame" title="Dashboard preview"></iframe></div>
+  </aside>
   <h1>Customizable TAB <small>Admin Panel</small> <span id="storage"></span></h1>
 
   <section>
@@ -27,17 +35,37 @@
   <section>
     <h2>Wallpaper &amp; Display</h2>
     <div class="row">
+      <label><input type="radio" name="wpMode" value="live"> Live 3D (animated)</label>
       <label><input type="radio" name="wpMode" value="daily"> Auto-Daily (Bing, midnight rotation)</label>
       <label><input type="radio" name="wpMode" value="url"> Custom Web URL</label>
-      <label><input type="radio" name="wpMode" value="file"> Local File Upload</label>
+      <label><input type="radio" name="wpMode" value="file"> Local Image / Video</label>
       <label><input type="radio" name="wpMode" value="gradient"> Solid / CSS Gradient</label>
     </div>
+    <div class="mode row" data-mode="live">
+      <label>Scene <select id="liveScene"></select></label>
+      <label>Quality <select id="liveQuality"><option value="low">Battery saver</option><option value="medium">Balanced</option><option value="high">Ultra</option></select></label>
+      <span id="motionNote" class="note" hidden>Your system has “reduce motion” on, so live scenes show a still frame.</span>
+    </div>
     <div class="mode" data-mode="url"><input id="wpUrl" placeholder="https://example.com/image.jpg"></div>
-    <div class="mode" data-mode="file"><input id="wpFile" type="file" accept="image/*"> <span id="fileStatus"></span></div>
+    <div class="mode" data-mode="file"><input id="wpFile" type="file" accept="image/*,video/mp4,video/webm"> <small class="note">Images or looping videos (MP4/WebM) — e.g. an animated wallpaper you own.</small> <span id="fileStatus"></span></div>
     <div class="mode" data-mode="gradient"><input id="gradient" placeholder="#222 or linear-gradient(...)"></div>
     <label>Dim: <span id="dimVal"></span>% <input id="dim" type="range" min="0" max="80"></label>
     <label>Blur: <span id="blurVal"></span>px <input id="blur" type="range" min="0" max="25"></label>
     <div id="preview"><div id="previewDim"></div><span>Preview</span></div>
+  </section>
+
+  <section>
+    <h2>Layout &amp; Theme</h2>
+    <div class="row">
+      <label>Layout <select id="layout"><option value="centered">Centered</option><option value="sidebar">Sidebar (widgets on the right)</option><option value="minimal">Minimal (big clock + dock)</option></select></label>
+      <label>Accent <input id="accent" type="color"></label>
+    </div>
+    <div class="row">
+      <label>Card size <select id="cardSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select></label>
+      <label>Card style <select id="cardStyle"><option value="glass">Glass</option><option value="solid">Solid</option><option value="outline">Outline</option></select></label>
+      <label><input id="animations" type="checkbox"> Animations (entrance, 3D tilt, parallax, live scenes)</label>
+    </div>
+    <label>Your name (for the greeting) <input id="userName" placeholder="e.g. Samyak"></label>
   </section>
 
   <section>
@@ -47,18 +75,24 @@
       <label><input type="checkbox" data-widget="todo"> To-do list</label>
       <label><input type="checkbox" data-widget="notes"> Quick notes</label>
       <label><input type="checkbox" data-widget="pomodoro"> Pomodoro timer</label>
+      <label><input type="checkbox" data-widget="quote"> Quote of the day</label>
+      <label><input type="checkbox" data-widget="calendar"> Calendar</label>
+      <label><input type="checkbox" data-widget="worldclock"> World clock</label>
     </div>
     <div class="row">
-      <input id="weatherCity" placeholder="Weather city (e.g. Bhubaneswar)">
+      <input id="weatherCity" placeholder="City — leave blank to use your current location">
       <select id="tempUnit"><option value="celsius">°C</option><option value="fahrenheit">°F</option></select>
     </div>
+    <p class="note">To move, resize or restyle widgets, press <b>E</b> on the dashboard (or click the grid button in its header).</p>
+    <label>World clock zones <input id="zones" placeholder="America/New_York, Europe/London, Asia/Kolkata"></label>
   </section>
 
   <section>
     <h2>Search, Clock &amp; Shortcuts</h2>
     <label>Default engine: <select id="engine"></select></label>
     <label><input id="clock24" type="checkbox"> 24-hour clock</label>
-    <label><input id="shortcuts" type="checkbox"> Keyboard shortcuts (1–9 open links, / focuses search)</label>
+    <label><input id="shortcuts" type="checkbox"> Keyboard shortcuts (1–9 open links, / search, W next wallpaper, Z zen, C customize)</label>
+    <p class="note">Ctrl+K opens the command palette on the new tab page.</p>
   </section>
 
   <section>
@@ -71,6 +105,7 @@
 
   <div id="toast"></div>
   <script src="shared.js"></script>
+  <script src="live.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

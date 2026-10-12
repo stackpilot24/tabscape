@@ -118,38 +118,65 @@ $("groupForm").onsubmit = (e) => {
 };
 
 // ---- Wallpaper ----
+let previewVideoKey = "";
 async function renderPreview() {
   document.querySelectorAll(".mode").forEach((m) => m.classList.toggle("on", m.dataset.mode === S.wpMode));
   $("dimVal").textContent = S.dim; $("blurVal").textContent = S.blur;
   $("previewDim").style.opacity = S.dim / 100;
   const p = $("preview");
   p.style.filter = `blur(${S.blur / 3}px)`;
-  let url = null;
+  $("motionNote").hidden = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (S.wpMode === "live") {
+    p.style.backgroundImage = "none";
+    p.querySelector("video")?.remove(); previewVideoKey = "";
+    Live.start(p, S.liveScene, { accent: S.accent, quality: S.liveQuality, animate: S.animations });
+    return;
+  }
+  Live.stop();
+  let url = null, video = null;
   if (S.wpMode === "daily") url = (await chrome.storage.local.get("wallpaperUrl")).wallpaperUrl;
   else if (S.wpMode === "url") url = S.wpUrl;
   else if (S.wpMode === "file") {
     const f = await getWallpaperFile().catch(() => null);
-    $("fileStatus").textContent = f ? "Image stored ✓" : "No image uploaded";
-    if (f) url = URL.createObjectURL(f);
+    video = f?.type.startsWith("video/") ? f : null;
+    $("fileStatus").textContent = !f ? "Nothing uploaded yet" : video ? "Video stored ✓" : "Image stored ✓";
+    if (f && !video) url = URL.createObjectURL(f);
   }
-  p.style.backgroundImage = url ? `url("${url}")` : S.gradient;
+  // Keep a playing preview video across slider changes; replace it only when the file changes
+  const key = video ? "video:" + S.wpFileAt : "";
+  if (key !== previewVideoKey) {
+    p.querySelector("video")?.remove();
+    if (video) showVideo(p, video);
+    previewVideoKey = key;
+  }
+  p.style.backgroundImage = url ? `url("${url}")` : video ? "none" : S.gradient;
 }
 
 document.querySelectorAll("[name=wpMode]").forEach((r) => {
   r.onchange = () => save({ wpMode: r.value }).then(renderPreview);
 });
+for (const [k, name] of Object.entries(LIVE_SCENES)) $("liveScene").add(new Option(name, k));
+for (const k of ["liveScene", "liveQuality"]) $(k).onchange = (e) => save({ [k]: e.target.value }).then(renderPreview);
 $("wpUrl").onchange = (e) => save({ wpUrl: e.target.value.trim() }).then(renderPreview);
 $("gradient").onchange = (e) => save({ gradient: e.target.value.trim() || DEFAULTS.gradient }).then(renderPreview);
 $("wpFile").onchange = async (e) => {
   const f = e.target.files[0];
   if (!f) return;
+  if (f.size > 200e6) return toast("File too large (max 200 MB)");
   await putWallpaperFile(f);
-  toast("Image uploaded"); renderPreview();
+  await save({ wpFileAt: Date.now() }, f.type.startsWith("video/") ? "Video uploaded" : "Image uploaded");
+  renderPreview();
 };
 for (const k of ["dim", "blur"]) {
   $(k).oninput = (e) => { S[k] = +e.target.value; renderPreview(); };
   $(k).onchange = (e) => save({ [k]: +e.target.value });
 }
+
+// ---- Layout & theme ----
+for (const k of ["layout", "cardSize", "cardStyle"]) $(k).onchange = (e) => save({ [k]: e.target.value });
+$("accent").onchange = (e) => save({ accent: e.target.value }).then(renderPreview);
+$("animations").onchange = (e) => save({ animations: e.target.checked }).then(renderPreview);
+$("userName").onchange = (e) => save({ userName: e.target.value.trim() });
 
 // ---- Widgets ----
 document.querySelectorAll("[data-widget]").forEach((c) => {
@@ -157,6 +184,7 @@ document.querySelectorAll("[data-widget]").forEach((c) => {
 });
 $("weatherCity").onchange = (e) => save({ weatherCity: e.target.value.trim() });
 $("tempUnit").onchange = (e) => save({ tempUnit: e.target.value });
+$("zones").onchange = (e) => save({ zones: e.target.value.split(",").map((z) => z.trim()).filter(Boolean) });
 
 // ---- Search, clock & shortcuts ----
 for (const k in ENGINES) $("engine").add(new Option(k[0].toUpperCase() + k.slice(1), k));
@@ -196,8 +224,34 @@ function fillForm() {
   $("engine").value = S.engine; $("clock24").checked = S.clock24; $("shortcuts").checked = S.shortcuts;
   document.querySelectorAll("[data-widget]").forEach((c) => (c.checked = S.widgets[c.dataset.widget]));
   $("weatherCity").value = S.weatherCity; $("tempUnit").value = S.tempUnit;
+  $("liveScene").value = S.liveScene; $("liveQuality").value = S.liveQuality;
+  $("layout").value = S.layout; $("accent").value = S.accent; $("cardSize").value = S.cardSize;
+  $("cardStyle").value = S.cardStyle; $("animations").checked = S.animations; $("userName").value = S.userName;
+  $("zones").value = S.zones.join(", ");
   renderGroups(); renderPreview();
 }
+
+// ---- Navigation & live preview ----
+$("back").onclick = async () => {
+  // Reopen Chrome's real new tab (clean address bar); fall back to the extension page directly
+  try { const tab = await chrome.tabs.getCurrent(); await chrome.tabs.update(tab.id, { url: "chrome://newtab/" }); }
+  catch { location.href = "newtab.html"; }
+};
+function fitPreview() {
+  const box = document.querySelector(".lp-frame"), f = $("lpFrame");
+  const k = Math.min(box.clientWidth / 1440, box.clientHeight / 900);
+  f.style.transform = `scale(${k})`;
+  f.style.left = `${(box.clientWidth - 1440 * k) / 2}px`;
+}
+$("togglePreview").onclick = () => {
+  const open = $("livePreview").hidden;
+  $("livePreview").hidden = !open;
+  document.body.classList.toggle("split", open);
+  $("togglePreview").textContent = open ? "Hide live preview" : "Show live preview";
+  if (open && !$("lpFrame").src) $("lpFrame").src = "newtab.html";
+  if (open) fitPreview();
+};
+addEventListener("resize", () => { if (!$("livePreview").hidden) fitPreview(); });
 
 (async () => {
   S = await getSettings();

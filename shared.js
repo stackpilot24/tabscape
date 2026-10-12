@@ -14,13 +14,26 @@ const DEFAULTS = {
   engine: "google",
   clock24: false,
   shortcuts: true,
-  wpMode: "daily", // daily | url | file | gradient
+  wpMode: "live", // daily | live | url | file (image or video) | gradient
   wpUrl: "",
+  wpFileAt: 0, // bumped on each upload so open tabs reload the file
+  liveScene: "webcity", // key of LIVE_SCENES in live.js
+  liveQuality: "medium", // low | medium | high
   gradient: "linear-gradient(135deg, #1e3c72, #2a5298)",
   dim: 30,
   blur: 0,
-  widgets: { weather: false, todo: false, notes: false, pomodoro: false },
-  weatherCity: "",
+  layout: "centered", // centered | sidebar | minimal
+  accent: "#e23636",
+  cardSize: "m", // s | m | l
+  cardStyle: "glass", // glass | solid | outline
+  animations: true,
+  userName: "",
+  widgets: { weather: true, todo: false, notes: false, pomodoro: false, quote: false, calendar: false, worldclock: false },
+  zones: ["America/New_York", "Europe/London", "Asia/Tokyo"],
+  // Global widget look; each widget may override it in widgetLayout[id].style
+  widgetStyle: { bg: 25, tint: "dark", blur: 16, opacity: 100, font: "system", size: 100, color: "#ffffff", radius: 18, border: true },
+  widgetLayout: {}, // { [widgetId]: { rect: { x, y, w, h, z } (% of viewport), style: {...} } }
+  weatherCity: "", // empty = detect current location
   tempUnit: "celsius",
   todos: [],
   notes: ""
@@ -45,6 +58,7 @@ function migrate(s) {
 function normalize(raw) {
   const s = { ...structuredClone(DEFAULTS), ...migrate(raw) };
   s.widgets = { ...DEFAULTS.widgets, ...raw.widgets };
+  s.widgetStyle = { ...DEFAULTS.widgetStyle, ...raw.widgetStyle };
   return s;
 }
 
@@ -131,5 +145,14 @@ function idb(mode, fn) {
     };
   });
 }
+// Plays an uploaded video wallpaper (muted, looping) behind everything else in `host`
+function showVideo(host, blob) {
+  const v = el("video", "live-canvas");
+  Object.assign(v, { muted: true, loop: true, autoplay: true, playsInline: true, src: URL.createObjectURL(blob) });
+  v.style.objectFit = "cover";
+  host.prepend(v);
+  return v;
+}
+
 const putWallpaperFile = (blob) => idb("readwrite", (s) => s.put(blob, "wallpaper"));
 const getWallpaperFile = () => idb("readonly", (s) => s.get("wallpaper"));
