@@ -1,10 +1,25 @@
 // Background service worker: ends Pomodoro sessions on time (even with no tab open), blocks
-// distracting sites while a focus session runs, and opens the welcome tour after install.
+// distracting sites while a focus session runs, prefetches the daily photo just after midnight,
+// and opens the welcome tour after install.
 if (typeof importScripts === "function") importScripts("apps.js", "shared.js"); // Firefox loads them via manifest scripts
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === "install") chrome.tabs.create({}); // a new tab shows the dashboard and its welcome tour
+  scheduleDaily();
 });
+
+// Daily photo: refresh the list at 00:01 local time and warm the HTTP cache with the first image,
+// so the first new tab of the day opens instantly
+function scheduleDaily() {
+  const n = new Date();
+  chrome.alarms.create("daily", { when: new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 1).getTime() });
+}
+async function prefetchDaily() {
+  const s = await getSettings();
+  if (s.wpMode !== "daily") return;
+  const [first] = await dailyList(s);
+  if (first) await fetch(first.url, { mode: "no-cors" }).catch(() => {});
+}
 
 const focusActive = (pomo) => pomo?.mode === "work" && pomo.endsAt > Date.now();
 const hostOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
@@ -16,9 +31,13 @@ async function syncAlarm(pomo) {
   if (pomo?.endsAt) chrome.alarms.create("pomo", { when: pomo.endsAt });
 }
 
-chrome.runtime.onStartup.addListener(async () => syncAlarm((await chrome.storage.local.get("pomo")).pomo));
+chrome.runtime.onStartup.addListener(async () => {
+  scheduleDaily();
+  syncAlarm((await chrome.storage.local.get("pomo")).pomo);
+});
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === "daily") { scheduleDaily(); await prefetchDaily(); return; }
   if (alarm.name !== "pomo") return;
   const { pomo } = await chrome.storage.local.get("pomo");
   if (pomo?.endsAt && pomo.endsAt <= Date.now() + 1000) await finishPomo(await getSettings(), pomo.endsAt);

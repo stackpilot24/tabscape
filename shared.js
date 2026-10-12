@@ -44,6 +44,9 @@ const DEFAULTS = {
   dockLocked: true, // locked docks can't be edited until unlocked in settings
   dockVisible: true,
   aiTools: true, // AI Tools launcher in the bottom-left corner
+  dailySource: "bing", // bing | apod | wikimedia | picsum (see DAILY_SOURCES)
+  nasaKey: "", // optional personal key for NASA APOD (DEMO_KEY is shared and rate-limited)
+  sceneSchedule: { on: false, morning: "ocean", day: "clouds", evening: "synthwave", night: "webcity" },
   smooth: true, // drop glass blur over animated wallpapers (blur is re-rendered every frame)
   suggest: false, // search suggestions (asks for permission to the suggestion host)
   showFocus: true,
@@ -84,6 +87,7 @@ function normalize(raw) {
   s.widgets = { ...DEFAULTS.widgets, ...raw.widgets };
   s.widgetStyle = { ...DEFAULTS.widgetStyle, ...raw.widgetStyle };
   s.focus = { ...DEFAULTS.focus, ...raw.focus };
+  s.sceneSchedule = { ...DEFAULTS.sceneSchedule, ...raw.sceneSchedule };
   return s;
 }
 
@@ -173,6 +177,78 @@ function decodeTheme(code) {
   if (t.wpMode === "file" || t.wpMode === "url") t.wpMode = "live"; // uploads aren't shareable
   return Object.fromEntries(THEME_KEYS.filter((k) => k in t).map((k) => [k, t[k]]));
 }
+
+// ---- Daily photo wallpapers: free sources, cached once per local day ----
+// Each loader returns up to 8 recent pictures, newest first: { url, title, link } (link = credit/source page)
+const DAILY_SOURCES = {
+  bing: {
+    name: "Bing photo of the day",
+    async load() {
+      const json = await getJSON("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=en-US");
+      return json.images.map((i) => ({ url: `https://www.bing.com${i.urlbase}_UHD.jpg`, title: i.copyright || "", link: i.copyrightlink || "https://www.bing.com" }));
+    }
+  },
+  apod: {
+    name: "NASA Astronomy Picture of the Day",
+    async load(s) {
+      const start = isoDate(new Date(Date.now() - 9 * 864e5));
+      const days = await getJSON(`https://api.nasa.gov/planetary/apod?api_key=${encodeURIComponent(s.nasaKey || "DEMO_KEY")}&start_date=${start}`);
+      // only real APOD pictures (the API sometimes returns a generic NASA placeholder instead)
+      return days.filter((d) => d.media_type === "image" && /apod\.nasa\.gov\/apod\/image\//.test(d.hdurl || d.url)).reverse().slice(0, 8).map((d) => ({
+        url: d.hdurl || d.url, title: `${d.title}${d.copyright ? " — © " + d.copyright.trim() : ""}`,
+        link: `https://apod.nasa.gov/apod/ap${d.date.slice(2).replace(/-/g, "")}.html`
+      }));
+    }
+  },
+  wikimedia: {
+    name: "Wikimedia Commons picture of the day",
+    async load() {
+      const days = await Promise.allSettled(Array.from({ length: 4 }, (_, i) => {
+        const d = isoDate(new Date(Date.now() - i * 864e5)).replace(/-/g, "/");
+        return getJSON(`https://api.wikimedia.org/feed/v1/wikipedia/en/featured/${d}`);
+      }));
+      return days.filter((r) => r.status === "fulfilled" && r.value.image).map(({ value: { image } }) => ({
+        url: image.image?.source || image.thumbnail.source,
+        title: `${(image.description?.text || image.title || "").replace(/<[^>]+>/g, "").slice(0, 140)}${image.artist?.text ? " — " + image.artist.text.replace(/<[^>]+>/g, "") : ""}`,
+        link: image.file_page || "https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day"
+      }));
+    }
+  },
+  picsum: {
+    name: "Lorem Picsum (Unsplash photos)",
+    async load() {
+      const today = isoDate(), w = 2560, h = 1440;
+      return Array.from({ length: 8 }, (_, i) => ({ url: `https://picsum.photos/seed/ctab-${today}-${i}/${w}/${h}`, title: "Photo via Lorem Picsum / Unsplash", link: "https://picsum.photos" }));
+    }
+  }
+};
+
+// Today's list for the chosen source, fetched at most once per local day (also prefetched at midnight
+// by the background worker). If the source is down or has nothing usable, the next source is tried;
+// offline, the last good list is kept.
+async function dailyList(s) {
+  const source = DAILY_SOURCES[s.dailySource] ? s.dailySource : "bing", key = `${isoDate()}|${source}`;
+  const data = await chrome.storage.local.get(["dailyKey", "wallpaperList"]);
+  if (data.dailyKey === key && data.wallpaperList?.length) return data.wallpaperList;
+  for (const name of [source, ...["bing", "wikimedia", "picsum"].filter((n) => n !== source)]) {
+    try {
+      const list = (await DAILY_SOURCES[name].load(s)).filter((p) => /^https:/.test(p.url));
+      if (!list.length) throw new Error("no usable pictures today");
+      if (name !== source) list.forEach((p) => (p.title = `[${DAILY_SOURCES[source].name} unavailable today] ${p.title}`));
+      await chrome.storage.local.set({ dailyKey: key, wallpaperList: list, wallpaperIdx: 0, wallpaperUrl: list[0].url });
+      return list;
+    } catch (err) {
+      console.warn(`Daily wallpaper (${name}) failed:`, err);
+    }
+  }
+  return data.wallpaperList || [];
+}
+
+// ---- Scene by time of day ----
+const DAY_SLOTS = [["night", 0, 5], ["morning", 5, 11], ["day", 11, 17], ["evening", 17, 21], ["night", 21, 24]];
+const daySlot = (d = new Date()) => DAY_SLOTS.find(([, from, to]) => d.getHours() >= from && d.getHours() < to)[0];
+// The live scene to show now: the schedule's pick for this part of the day, or the chosen scene
+const currentScene = (s) => (s.sceneSchedule?.on ? s.sceneSchedule[daySlot()] : s.liveScene) || s.liveScene;
 
 // ---- Focus blocking: site list helpers ----
 const siteOrigins = (hosts) => hosts.flatMap((h) => [`*://${h}/*`, `*://*.${h}/*`]);

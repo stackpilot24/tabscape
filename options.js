@@ -195,7 +195,7 @@ async function renderPreview() {
   if (S.wpMode === "live") {
     p.style.backgroundImage = "none";
     p.querySelector("video")?.remove(); previewVideoKey = "";
-    Live.start(p, S.liveScene, { accent: S.accent, quality: S.liveQuality, animate: S.animations });
+    Live.start(p, currentScene(S), { accent: S.accent, quality: S.liveQuality, animate: S.animations });
     return;
   }
   Live.stop();
@@ -223,6 +223,26 @@ document.querySelectorAll("[name=wpMode]").forEach((r) => {
 });
 for (const [k, name] of Object.entries(LIVE_SCENES)) $("liveScene").add(new Option(name, k));
 for (const k of ["liveScene", "liveQuality"]) $(k).onchange = (e) => save({ [k]: e.target.value }).then(renderPreview);
+const SOURCE_PAGES = { bing: "https://www.bing.com", apod: "https://apod.nasa.gov/apod/", wikimedia: "https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day", picsum: "https://picsum.photos" };
+for (const [k, src] of Object.entries(DAILY_SOURCES)) $("dailySource").add(new Option(src.name, k));
+$("dailySource").onchange = async (e) => {
+  await save({ dailySource: e.target.value }, "Source changed — open a new tab to see today's picture");
+  showSource();
+  await dailyList(S); // fetch now so the preview updates
+  renderPreview();
+};
+$("nasaKey").onchange = (e) => save({ nasaKey: e.target.value.trim() });
+function showSource() {
+  $("sourceLink").textContent = "Visit source ↗";
+  $("sourceLink").href = SOURCE_PAGES[S.dailySource];
+  document.querySelector(".nasa").hidden = S.dailySource !== "apod";
+}
+document.querySelectorAll("[data-slot]").forEach((sel) => {
+  for (const [k, name] of Object.entries(LIVE_SCENES)) sel.add(new Option(name, k));
+  sel.onchange = () => save({ sceneSchedule: { ...S.sceneSchedule, [sel.dataset.slot]: sel.value } });
+});
+$("schedOn").onchange = (e) => save({ sceneSchedule: { ...S.sceneSchedule, on: e.target.checked } }).then(renderPreview);
+
 $("wpUrl").onchange = (e) => save({ wpUrl: e.target.value.trim() }).then(renderPreview);
 $("gradient").onchange = (e) => save({ gradient: e.target.value.trim() || DEFAULTS.gradient }).then(renderPreview);
 $("wpFile").onchange = async (e) => {
@@ -408,6 +428,9 @@ function fillForm() {
   $("zones").value = S.zones.join(", ");
   $("dockLocked").checked = S.dockLocked; $("dockVisible").checked = S.dockVisible;
   $("aiTools").checked = S.aiTools; $("smooth").checked = S.smooth;
+  $("dailySource").value = S.dailySource; $("nasaKey").value = S.nasaKey; showSource();
+  $("schedOn").checked = S.sceneSchedule.on;
+  document.querySelectorAll("[data-slot]").forEach((sel) => (sel.value = S.sceneSchedule[sel.dataset.slot]));
   $("rssUrl").value = S.rssUrl; $("cryptoCoins").value = S.cryptoCoins.join(", ");
   $("cryptoCurrency").value = S.cryptoCurrency; $("githubUser").value = S.githubUser;
   $("showFocus").checked = S.showFocus; $("pomoWork").value = S.pomoWork; $("pomoBreak").value = S.pomoBreak;

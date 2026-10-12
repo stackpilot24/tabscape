@@ -20,7 +20,7 @@ The extension talks directly to these services from your browser, and only when 
 
 | Feature | Service | What is sent |
 |---|---|---|
-| Daily photo wallpaper | Bing (`bing.com`) | A request for today's image list |
+| Daily photo wallpaper (the source you pick) | Bing (`bing.com`), NASA APOD (`api.nasa.gov`), Wikimedia (`api.wikimedia.org`, `upload.wikimedia.org`) or Lorem Picsum (`picsum.photos`) | A request for recent pictures, plus your own NASA API key if you entered one |
 | Weather | Open-Meteo (`open-meteo.com`) | Your city name, or approximate coordinates |
 | Weather: automatic location | Browser geolocation, then BigDataCloud (`bigdatacloud.net`) to name the city | Coordinates, rounded by the browser |
 | Weather: fallback location | ipapi (`ipapi.co`) | Your IP address (inherent in any web request) |
@@ -36,7 +36,7 @@ Searches you submit go to the search engine you chose, just like searching from 
 
 - **storage, unlimitedStorage**: save your settings and an uploaded wallpaper.
 - **geolocation**: show weather for where you are when no city is set.
-- **alarms**: end a focus session on time, even when no new tab is open.
+- **alarms**: end a focus session on time, even when no new tab is open, and fetch the next daily photo just after midnight.
 - **bing.com host access**: load the daily photo.
 - **Optional: bookmarks, topSites**: requested only when you click *Import bookmarks* or *Import most visited*.
 - **Optional: specific sites**: requested only for features you turn on: the suggestion service, your news feed, or exactly the sites you choose to block during focus sessions.

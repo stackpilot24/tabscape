@@ -380,3 +380,9 @@ body.ai-over-dock #apps { translate: -50% 160%; opacity: 0; pointer-events: none
 .smooth #palette { background: #000a; }
 .smooth #welcome { background: #000b; }
 .smooth.layout-minimal #grid { background: #0b0c10b3; }
+.scene.ocean { background: radial-gradient(circle at 70% 48%, #ffd28a 0 7%, transparent 8%), linear-gradient(#3c6fc0, #f3b07c 58%, #2d5f8f 58%, #0b2442); }
+.scene.clouds { background: radial-gradient(ellipse at 30% 60%, #fff 0 18%, transparent 30%), radial-gradient(ellipse at 75% 40%, #f4f7fb 0 14%, transparent 26%), linear-gradient(#3a72cf, #a9cdf2); }
+.scene.underwater { background: repeating-linear-gradient(100deg, #8fe6f022 0 3px, transparent 3px 14px), linear-gradient(#0b6a86, #021220); }
+.scene.fireflies { background: radial-gradient(circle at 30% 55%, #d8ff7a 0 2px, transparent 4px), radial-gradient(circle at 62% 40%, #d8ff7a 0 2px, transparent 4px), radial-gradient(circle at 80% 65%, #d8ff7a 0 2px, transparent 4px), linear-gradient(#040912, #0b1d22 70%, #020605 70%); }
+.scene.matrix { background: repeating-linear-gradient(90deg, #39ff7a55 0 2px, transparent 2px 9px), #000; }
+.scene.plexus { background: linear-gradient(35deg, transparent 48%, #7aa2ff88 49% 51%, transparent 52%), linear-gradient(-20deg, transparent 48%, #7aa2ff66 49% 51%, transparent 52%), radial-gradient(#1a2140, #05060c); }

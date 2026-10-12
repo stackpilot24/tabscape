@@ -38,7 +38,7 @@ Live 3D wallpapers, an app dock, drag-anywhere widgets and focus tools on every 
 
 Turn every new tab into a dashboard that feels alive.
 
-🌌 **Live 3D wallpapers.** Ten animated scenes that react to your mouse: Web City, Festival Lights, Snowfall, Monsoon Rain, Spiral Galaxy, Synthwave, Aurora, Liquid, Starfield and Dotted Globe. Or use a fresh daily photo, your own image, or a looping video. Scenes pause when the tab is hidden and include a battery-saver mode.
+🌌 **Live 3D wallpapers.** Sixteen animated scenes that react to your mouse. They include Web City, Festival Lights, Snowfall, Monsoon Rain, Ocean (its sun and sky follow your real clock), Cloudy Sky, Underwater, Fireflies, Matrix Rain, Constellation, Galaxy, Synthwave and Aurora. Scenes can change by time of day. Or use a daily photo from Bing, NASA, Wikimedia Commons or Unsplash (via Picsum), your own image, or a looping video. Scenes pause when the tab is hidden and include a battery-saver mode.
 
 ⚓ **App dock.** Colorful one-click buttons for the apps you use most, such as YouTube, Gmail, WhatsApp, Telegram and Discord. Lock the dock so it never changes.
 
@@ -66,7 +66,7 @@ Turn every new tab into a dashboard that feels alive.
 
 हर नए टैब को एक जीवंत डैशबोर्ड में बदलिए।
 
-🌌 **लाइव 3D वॉलपेपर:** माउस के साथ चलने वाले 10 एनिमेटेड दृश्य: वेब सिटी, त्योहार की रोशनी (दीये और आतिशबाज़ी), बर्फ़बारी, मानसून की बारिश, आकाशगंगा, सिंथवेव, ऑरोरा और भी बहुत कुछ। या रोज़ नई फ़ोटो, अपनी इमेज या वीडियो लगाइए।
+🌌 **लाइव 3D वॉलपेपर:** माउस के साथ चलने वाले 16 एनिमेटेड दृश्य, जो दिन के समय के साथ बदल भी सकते हैं: वेब सिटी, त्योहार की रोशनी (दीये और आतिशबाज़ी), बर्फ़बारी, मानसून की बारिश, आकाशगंगा, सिंथवेव, ऑरोरा और भी बहुत कुछ। या रोज़ नई फ़ोटो, अपनी इमेज या वीडियो लगाइए।
 
 ⚓ **ऐप डॉक:** YouTube, Gmail, WhatsApp, Telegram और Discord जैसे पसंदीदा ऐप एक क्लिक में खोलिए। डॉक को लॉक भी किया जा सकता है।
 

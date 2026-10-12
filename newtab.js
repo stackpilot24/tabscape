@@ -1,5 +1,4 @@
 const $ = (id) => document.getElementById(id);
-const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 let S, flat = [];
 const persist = () => saveSettings(S);
@@ -12,6 +11,7 @@ function tick() {
   if (now.getMinutes() !== lastMinute) {
     lastMinute = now.getMinutes();
     if (applyProfileSchedule(S)) { persist(); renderAll(); return; }
+    if (S.wpMode === "live" && S.sceneSchedule.on) applyWallpaper(); // no-op unless the part of day changed
     if (isoDate(now) !== lastDay) { lastDay = isoDate(now); renderFocus(); }
   }
   $("clock").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !S.clock24 });
@@ -205,25 +205,8 @@ document.addEventListener("keydown", (e) => {
 const toggleZen = () => document.body.classList.toggle("zen");
 
 // ---- Wallpaper ----
-// Fetch Bing's last 8 daily images once per local calendar day; cache them in storage
-async function dailyList() {
-  const today = localDate();
-  const data = await chrome.storage.local.get(["wallpaperDate", "wallpaperList", "wallpaperUrl"]);
-  if (data.wallpaperDate === today && data.wallpaperList?.length) return data.wallpaperList;
-  try {
-    const res = await fetch("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=en-US");
-    const json = await res.json();
-    const list = json.images.map((i) => ({ url: `https://www.bing.com${i.urlbase}_UHD.jpg`, title: i.copyright || "", link: i.copyrightlink || "" }));
-    await chrome.storage.local.set({ wallpaperDate: today, wallpaperList: list, wallpaperIdx: 0, wallpaperUrl: list[0].url });
-    return list;
-  } catch (err) {
-    console.error("Failed to fetch daily wallpaper:", err);
-    return data.wallpaperList || (data.wallpaperUrl ? [{ url: data.wallpaperUrl, title: "" }] : []);
-  }
-}
-
 async function dailyWallpaper() {
-  const list = await dailyList();
+  const list = await dailyList(S);
   const { wallpaperIdx: i = 0 } = await chrome.storage.local.get("wallpaperIdx");
   return list[i % list.length] || null;
 }
@@ -242,7 +225,7 @@ async function applyWallpaper() {
     bgKey = "";
     removeVideo();
     bg.classList.remove("show");
-    Live.start($("live"), S.liveScene, { accent: S.accent, quality: S.liveQuality, animate: S.animations && !reducedMotion.matches });
+    Live.start($("live"), currentScene(S), { accent: S.accent, quality: S.liveQuality, animate: S.animations && !reducedMotion.matches });
     return;
   }
   Live.stop();
@@ -259,7 +242,11 @@ async function applyWallpaper() {
     }
     if (f) url = URL.createObjectURL(f);
   }
-  if (credit?.title) { $("credit").textContent = "📷 " + credit.title; $("credit").href = credit.link || "#"; }
+  if (credit) {
+    $("credit").textContent = "📷 " + (credit.title || DAILY_SOURCES[S.dailySource]?.name || "Photo of the day");
+    $("credit").href = credit.link || "#";
+    $("credit").title = "Open the photo's source page";
+  }
 
   const key = url ? (S.wpMode === "file" ? "file:" + S.wpFileAt : url) : S.gradient;
   if (key === bgKey) return;
@@ -276,9 +263,10 @@ async function applyWallpaper() {
 async function nextWallpaper() {
   if (S.wpMode === "live") {
     const names = Object.keys(LIVE_SCENES);
-    set({ liveScene: names[(names.indexOf(S.liveScene) + 1) % names.length] });
+    // a manual pick overrides the time-of-day schedule
+    set({ liveScene: names[(names.indexOf(currentScene(S)) + 1) % names.length], sceneSchedule: { ...S.sceneSchedule, on: false } });
   } else if (S.wpMode === "daily") {
-    const list = await dailyList();
+    const list = await dailyList(S);
     if (!list.length) return;
     const { wallpaperIdx: i = 0 } = await chrome.storage.local.get("wallpaperIdx");
     const j = (i + 1) % list.length;
@@ -376,10 +364,11 @@ function paletteActions() {
     { label: "Open all settings", icon: "⚙", run: () => (location.href = "options.html") },
     { label: `Switch to ${S.clock24 ? "12" : "24"}-hour clock`, icon: "🕑", run: () => set({ clock24: !S.clock24 }) },
     { label: `${S.animations ? "Disable" : "Enable"} animations`, icon: "✨", run: () => set({ animations: !S.animations }) },
-    { label: "Wallpaper: Daily photo", icon: "🌄", run: () => set({ wpMode: "daily" }) },
     { label: "Wallpaper: Gradient", icon: "🎨", run: () => set({ wpMode: "gradient" }) }
   ];
-  for (const [k, name] of Object.entries(LIVE_SCENES)) acts.push({ label: `Live wallpaper: ${name}`, icon: "🌌", run: () => set({ wpMode: "live", liveScene: k }) });
+  for (const [k, name] of Object.entries(LIVE_SCENES)) acts.push({ label: `Live wallpaper: ${name}`, icon: "🌌", run: () => set({ wpMode: "live", liveScene: k, sceneSchedule: { ...S.sceneSchedule, on: false } }) });
+  acts.push({ label: "Live wallpaper: change by time of day", icon: "🕰", run: () => set({ wpMode: "live", sceneSchedule: { ...S.sceneSchedule, on: true } }) });
+  for (const [k, src] of Object.entries(DAILY_SOURCES)) acts.push({ label: `Daily photo: ${src.name}`, icon: "🌄", run: () => set({ wpMode: "daily", dailySource: k }) });
   for (const l of ["centered", "sidebar", "minimal"]) acts.push({ label: `Layout: ${l[0].toUpperCase() + l.slice(1)}`, icon: "▦", run: () => set({ layout: l }) });
   for (const name of Object.keys(THEME_PRESETS)) acts.push({ label: `Theme: ${name}`, icon: "🎭", run: () => set(THEME_PRESETS[name]) });
   for (const name of ["", ...S.profiles.map((p) => p.name)]) {
@@ -484,8 +473,8 @@ function renderDrawer() {
 
   const scenes = el("div", "scenes");
   for (const [k, name] of Object.entries(LIVE_SCENES)) {
-    const b = el("button", `scene ${k}` + (S.wpMode === "live" && S.liveScene === k ? " on" : ""), name);
-    b.onclick = () => set({ wpMode: "live", liveScene: k });
+    const b = el("button", `scene ${k}` + (S.wpMode === "live" && currentScene(S) === k ? " on" : ""), name);
+    b.onclick = () => set({ wpMode: "live", liveScene: k, sceneSchedule: { ...S.sceneSchedule, on: false } });
     scenes.append(b);
   }
 
@@ -552,7 +541,13 @@ function renderDrawer() {
     ...profiles,
     field("Theme presets", presets, codeBox),
     field("Background", seg("wpMode", [["live", "Live 3D"], ["daily", "Daily photo"], ["gradient", "Gradient"]])),
-    field("3D scene", scenes),
+    field("3D scene", scenes, (() => {
+      const l = el("label", "toggle"), c = el("input");
+      c.type = "checkbox"; c.checked = S.sceneSchedule.on;
+      c.onchange = () => set({ wpMode: "live", sceneSchedule: { ...S.sceneSchedule, on: c.checked } });
+      l.append(el("span", "", "Change scene by time of day"), c);
+      return l;
+    })()),
     field("Scene quality", seg("liveQuality", [["low", "Battery"], ["medium", "Balanced"], ["high", "Ultra"]])),
     field("Dim", dim),
     field("Layout", seg("layout", [["centered", "Centered"], ["sidebar", "Sidebar"], ["minimal", "Minimal"]])),

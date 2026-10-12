@@ -64,7 +64,7 @@
     <h2>Wallpaper &amp; Display</h2>
     <div class="row">
       <label><input type="radio" name="wpMode" value="live"> Live 3D (animated)</label>
-      <label><input type="radio" name="wpMode" value="daily"> Auto-Daily (Bing, midnight rotation)</label>
+      <label><input type="radio" name="wpMode" value="daily"> Daily photo (new picture every midnight)</label>
       <label><input type="radio" name="wpMode" value="url"> Custom Web URL</label>
       <label><input type="radio" name="wpMode" value="file"> Local Image / Video</label>
       <label><input type="radio" name="wpMode" value="gradient"> Solid / CSS Gradient</label>
@@ -73,6 +73,23 @@
       <label>Scene <select id="liveScene"></select></label>
       <label>Quality <select id="liveQuality"><option value="low">Battery saver</option><option value="medium">Balanced</option><option value="high">Ultra</option></select></label>
       <span id="motionNote" class="note" hidden>Your system has “reduce motion” on, so live scenes show a still frame.</span>
+    </div>
+    <div class="mode" data-mode="live">
+      <label><input id="schedOn" type="checkbox"> Change the scene by time of day</label>
+      <div class="row sched">
+        <label>🌅 Morning 5–11 <select data-slot="morning"></select></label>
+        <label>☀️ Day 11–17 <select data-slot="day"></select></label>
+        <label>🌇 Evening 17–21 <select data-slot="evening"></select></label>
+        <label>🌙 Night 21–5 <select data-slot="night"></select></label>
+      </div>
+    </div>
+    <div class="mode" data-mode="daily">
+      <div class="row">
+        <label>Source <select id="dailySource"></select></label>
+        <a id="sourceLink" target="_blank" rel="noopener"></a>
+      </div>
+      <label class="nasa">NASA API key (optional) <input id="nasaKey" placeholder="DEMO_KEY — get a free personal key at api.nasa.gov"></label>
+      <p class="note">A new picture loads automatically just after midnight. Use the 🖼 button on the dashboard (or W) to browse recent days; the photo credit links to its source.</p>
     </div>
     <div class="mode" data-mode="url"><input id="wpUrl" placeholder="https://example.com/image.jpg"></div>
     <div class="mode" data-mode="file"><input id="wpFile" type="file" accept="image/*,video/mp4,video/webm"> <small class="note">Images or looping videos (MP4/WebM) — e.g. an animated wallpaper you own.</small> <span id="fileStatus"></span></div>

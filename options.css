@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
 body { font-family: system-ui, sans-serif; background: #f4f5f7; color: #222; max-width: 900px; margin: 0 auto; padding: 24px; }
 h1 small { font-weight: 400; color: #888; font-size: .55em; }
@@ -77,3 +78,7 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius
 .profile .days label { gap: 2px; font-size: .8rem; }
 .profile input[type=time] { padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
 .profile button { padding: 4px 10px; margin-left: auto; }
+.sched label { font-size: .9rem; }
+#sourceLink { color: #2a5298; text-decoration: none; font-size: .9rem; }
+.nasa input { flex: 1; }
+.mode input[type=checkbox] { width: auto; }

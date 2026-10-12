@@ -214,6 +214,9 @@ Shortcuts: `1`–`9` open links · `/` search · `W` next wallpaper · `Z` zen �
 - **Focus mode:** Configurable Pomodoro lengths, daily and weekly focus stats, and optional blocking of chosen sites during focus sessions (redirects to a "Stay focused" page). Sessions end on time via the background worker.
 - **New widgets:** News (RSS), Countdown, Habit tracker with streaks, Crypto prices (CoinGecko) and GitHub activity.
 - **Profiles:** Work and Personal setups, each with its own links, dock, widgets, layout and background, switching automatically by day and time.
+- **Six more live scenes:** Ocean (sun, moon and sky colors follow your local time), Cloudy sky and Underwater (WebGL), Fireflies, Matrix rain and Constellation, for 16 scenes in total.
+- **Scene by time of day:** Pick a scene for morning (5–11), day (11–17), evening (17–21) and night (21–5); the dashboard switches on its own.
+- **Daily photo sources:** Bing, NASA Astronomy Picture of the Day (optional free API key), Wikimedia Commons Picture of the Day, and Lorem Picsum (Unsplash photos). A credit link opens each photo's source page. The background worker fetches the next picture at 00:01 local time, and if a source is down the next one is used automatically.
 - **AI Tools launcher:** Bottom-left button that slides out ChatGPT, Gemini, Copilot, Claude, DeepSeek, Perplexity and Meta AI, and folds them back in on a second click. If the row would cover the app dock, the dock slides away; on narrow windows the pills become icons only.
 - **Smoothness:** Smooth mode (default on) replaces glass blur with tinted glass while a 3D scene animates, since blur over a moving wallpaper is recomputed every frame. Scenes adapt their resolution when frames run late, widget dragging uses GPU transforms, and the world clock redraws once a minute.
 - **Seasonal scenes:** Festival lights (diyas, lanterns, fireworks), Snowfall and Monsoon rain.

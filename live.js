@@ -11,7 +11,13 @@ const LIVE_SCENES = {
   fluid: "Liquid",
   festival: "Festival lights",
   snow: "Snowfall",
-  rain: "Monsoon rain"
+  rain: "Monsoon rain",
+  ocean: "Ocean (follows the time)",
+  clouds: "Cloudy sky",
+  underwater: "Underwater",
+  fireflies: "Fireflies",
+  matrix: "Matrix rain",
+  plexus: "Constellation"
 };
 const LIVE_QUALITY = {
   low: { scale: 0.5, fps: 30, n: 0.5 },
@@ -604,6 +610,231 @@ function rain(canvas, env) {
   };
 }
 
+// Ocean horizon that follows the real clock: starry night and moon, golden sunrise/sunset, blue day
+function ocean(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const stars = Array.from({ length: 170 }, () => [Math.random(), Math.random() * 0.55, Math.random() * 6]);
+  const glints = Array.from({ length: Math.round(150 * env.n) }, () => ({ x: Math.random() * 2 - 1, y: Math.random(), w: 0.3 + Math.random(), ph: Math.random() * 6 }));
+  // [sun elevation, sky top, sky horizon, sea top, sea bottom]
+  const KEYS = [
+    [-1, [3, 6, 18], [12, 20, 46], [8, 14, 30], [2, 4, 10]],
+    [-0.1, [18, 22, 56], [196, 104, 92], [52, 44, 70], [8, 12, 26]],
+    [0.1, [70, 112, 196], [255, 184, 122], [96, 116, 156], [16, 38, 66]],
+    [0.4, [50, 126, 214], [170, 212, 245], [38, 108, 168], [10, 48, 88]],
+    [1, [38, 108, 210], [150, 200, 245], [28, 98, 164], [8, 44, 84]]
+  ];
+  const palette = (e) => {
+    let i = 0;
+    while (i < KEYS.length - 2 && e > KEYS[i + 1][0]) i++;
+    const a = KEYS[i], b = KEYS[i + 1], k = Math.min(1, Math.max(0, (e - a[0]) / (b[0] - a[0])));
+    return [1, 2, 3, 4].map((j) => mixRgb(a[j], b[j], k));
+  };
+  let sky = null, sea = null, key = "";
+
+  return {
+    draw(t, w, h, m, dt) {
+      const now = new Date(), hr = now.getHours() + now.getMinutes() / 60;
+      const e = Math.sin(((hr - 6) / 12) * Math.PI); // -1 at midnight, 0 at 6:00 / 18:00, 1 at noon
+      const hz = h * 0.62, night = Math.min(1, Math.max(0, -e * 4));
+      const k = `${w}x${h}|${Math.round(e * 60)}`;
+      if (k !== key) {
+        key = k;
+        const [top, horizon, seaTop, seaBot] = palette(e);
+        sky = backdrop(w, Math.ceil(hz), (g, w, hh) => {
+          const gr = g.createLinearGradient(0, 0, 0, hh);
+          gr.addColorStop(0, rgba(top)); gr.addColorStop(1, rgba(horizon));
+          g.fillStyle = gr; g.fillRect(0, 0, w, hh);
+        });
+        sea = backdrop(w, Math.ceil(h - hz), (g, w, hh) => {
+          const gr = g.createLinearGradient(0, 0, 0, hh);
+          gr.addColorStop(0, rgba(seaTop)); gr.addColorStop(1, rgba(seaBot));
+          g.fillStyle = gr; g.fillRect(0, 0, w, hh);
+        });
+      }
+      ctx.drawImage(sky, 0, 0);
+      if (night > 0) {
+        ctx.fillStyle = "#fff";
+        for (const [x, y, ph] of stars) { ctx.globalAlpha = night * (0.3 + 0.35 * Math.sin(t * 1.3 + ph)); ctx.fillRect(x * w, y * h, 1.4, 1.4); }
+        ctx.globalAlpha = 1;
+      }
+      // the sun by day, the moon by night, travelling left to right
+      const isSun = e > -0.12, el = isSun ? e : -e;
+      const frac = (((isSun ? hr : hr + 12) - 6 + 24) % 24) / 12;
+      const bx = w * (0.08 + 0.84 * Math.min(1, Math.max(0, frac))) - m.x * 10, by = hz - el * h * 0.5;
+      const r = Math.min(w, h) * (isSun ? 0.05 : 0.04);
+      const tone = isSun ? (e < 0.25 ? [255, 168, 96] : [255, 246, 222]) : [228, 236, 255];
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = isSun ? 0.7 : 0.35;
+      ctx.drawImage(glow(tone), bx - r * 7, by - r * 7, r * 14, r * 14);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = rgba(tone);
+      ctx.beginPath(); ctx.arc(bx, by, r, 0, 6.283); ctx.fill();
+
+      ctx.drawImage(sea, 0, hz);
+      // shimmering reflection path under the sun/moon, plus slow swell lines
+      const bright = isSun ? Math.min(1, 0.4 + el) : 0.45, spread = w * 0.08;
+      ctx.fillStyle = rgba(tone);
+      for (const g of glints) {
+        const depth = g.y, a = bright * (0.15 + 0.5 * Math.max(0, Math.sin(t * 2 + g.ph))) * (1 - depth * 0.5);
+        if (a < 0.03) continue;
+        const len = g.w * w * 0.03 * (0.4 + depth * 1.5), x = bx + g.x * spread * (0.4 + depth * 2.2), y = hz + 2 + depth * depth * (h - hz);
+        ctx.globalAlpha = a;
+        ctx.fillRect(x - len / 2, y, len, Math.max(1, depth * 3));
+      }
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(255,255,255,.05)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 1; i < 14; i++) {
+        const y = hz + (i / 14) ** 2 * (h - hz), off = Math.sin(t * 0.4 + i) * 20;
+        ctx.moveTo(0, y); ctx.bezierCurveTo(w * 0.3, y - 3 + off * 0.1, w * 0.7, y + 3 - off * 0.1, w, y);
+      }
+      ctx.stroke();
+    }
+  };
+}
+
+// Summer night meadow: tree line, tall grass and drifting, blinking fireflies that shy away from the cursor
+function fireflies(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const tint = mixRgb([205, 255, 120], env.accent, 0.15);
+  const flies = Array.from({ length: Math.round(70 * env.n) }, () => ({ x: Math.random(), y: 0.3 + Math.random() * 0.65, a: Math.random() * 6.28, ph: Math.random() * 6, sp: 0.6 + Math.random() * 1.2, z: 0.4 + Math.random() * 0.6 }));
+  let back = null, front = null;
+
+  function build(w, h) {
+    back = backdrop(w, h, (g) => {
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, "#040912"); gr.addColorStop(0.7, "#0b1d22"); gr.addColorStop(1, "#08130f");
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#fff";
+      for (let i = 0; i < 120; i++) { g.globalAlpha = Math.random() * 0.5; g.fillRect(Math.random() * w, Math.random() * h * 0.5, 1.2, 1.2); }
+      g.globalAlpha = 1;
+      g.fillStyle = "#061012"; // tree line: overlapping canopy blobs
+      for (let x = -40; x < w + 40; x += w * 0.018) {
+        const top = h * (0.5 + Math.sin(x * 0.004) * 0.05 + Math.random() * 0.06), r = h * (0.04 + Math.random() * 0.05);
+        g.beginPath(); g.arc(x, top, r, 0, 6.283); g.fill();
+        g.fillRect(x - r, top, r * 2, h);
+      }
+    });
+    front = backdrop(w, h, (g) => {
+      g.strokeStyle = "#020605"; g.lineCap = "round";
+      for (let i = 0; i < w / 3; i++) { // grass blades
+        const x = Math.random() * w, len = h * (0.06 + Math.random() * 0.16), lean = (Math.random() - 0.5) * len * 0.6;
+        g.lineWidth = 1 + Math.random() * 2.5;
+        g.beginPath(); g.moveTo(x, h + 2); g.quadraticCurveTo(x + lean * 0.3, h - len * 0.6, x + lean, h - len); g.stroke();
+      }
+    });
+  }
+
+  return {
+    draw(t, w, h, m, dt) {
+      if (back?.width !== w || back?.height !== h) build(w, h);
+      ctx.drawImage(back, 0, 0);
+      const mx = (m.x + 1) / 2, my = (m.y + 1) / 2, sprite = glow(tint);
+      ctx.globalCompositeOperation = "lighter";
+      for (const f of flies) {
+        f.a += (Math.sin(t * 0.7 + f.ph) * 1.2) * dt;
+        f.x += Math.cos(f.a) * 0.02 * f.sp * dt; f.y += Math.sin(f.a) * 0.012 * f.sp * dt;
+        const dx = f.x - mx, dy = f.y - my, d2 = dx * dx + dy * dy;
+        if (d2 < 0.02) { f.x += (dx / Math.sqrt(d2 + 1e-4)) * 0.08 * dt; f.y += (dy / Math.sqrt(d2 + 1e-4)) * 0.08 * dt; }
+        if (f.x < -0.05) f.x = 1.05; else if (f.x > 1.05) f.x = -0.05;
+        f.y = Math.min(0.97, Math.max(0.25, f.y));
+        const blink = Math.max(0, Math.sin(t * f.sp * 1.6 + f.ph)) ** 2;
+        if (blink < 0.02) continue;
+        const s = (h / 900) * 26 * f.z;
+        ctx.globalAlpha = blink * f.z;
+        ctx.drawImage(sprite, f.x * w - s, f.y * h - s, s * 2, s * 2);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(front, 0, 0);
+    }
+  };
+}
+
+// Digital rain: glyph columns falling at a fixed pace, fading trails (draws on top of the last frame)
+function matrix(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const GLYPHS = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン0123456789ABCDEF";
+  const green = rgba(mixRgb([70, 255, 130], env.accent, 0.2));
+  let cols = [], fs = 16, W = 0, H = 0, acc = 0;
+  const pick = () => GLYPHS[(Math.random() * GLYPHS.length) | 0];
+
+  function step(w, h) {
+    ctx.fillStyle = "rgba(0,0,0,0.07)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = `${fs}px "Cascadia Code", Consolas, monospace`;
+    for (let i = 0; i < cols.length; i++) {
+      const y = cols[i] * fs;
+      ctx.fillStyle = green;
+      ctx.fillText(pick(), i * fs, y - fs);
+      ctx.fillStyle = "rgba(225,255,235,.95)"; // bright head
+      ctx.fillText(pick(), i * fs, y);
+      cols[i] = y > h && Math.random() > 0.975 ? 0 : cols[i] + 1;
+    }
+  }
+
+  return {
+    draw(t, w, h, m, dt) {
+      if (w !== W || h !== H) {
+        W = w; H = h; fs = Math.max(12, Math.round(h / 46));
+        cols = Array.from({ length: Math.ceil(w / fs) }, () => -Math.floor(Math.random() * (h / fs)));
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 120; i++) step(w, h); // start mid-rain (also the still frame)
+      }
+      acc += dt;
+      while (acc >= 1 / 22) { acc -= 1 / 22; step(w, h); }
+    }
+  };
+}
+
+// Constellation network: drifting points joined by lines when close; the cursor joins in and attracts
+function plexus(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const N = Math.round(100 * env.n), A = env.accent;
+  const pts = Array.from({ length: N }, () => ({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.03, vy: (Math.random() - 0.5) * 0.03 }));
+  const styles = [rgba(mixRgb(A, [255, 255, 255], 0.3), 0.55), rgba(A, 0.3), rgba(A, 0.12)];
+  let bg = null;
+
+  return {
+    draw(t, w, h, m, dt) {
+      if (bg?.width !== w || bg?.height !== h) bg = backdrop(w, h, (g) => {
+        g.fillStyle = "#05060c"; g.fillRect(0, 0, w, h);
+        const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.6);
+        gr.addColorStop(0, rgba(A, 0.14)); gr.addColorStop(1, rgba(A, 0));
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      });
+      ctx.drawImage(bg, 0, 0);
+      const D = Math.min(w, h) * 0.15, D2 = D * D, mx = ((m.x + 1) / 2) * w, my = ((m.y + 1) / 2) * h;
+      for (const p of pts) {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        if (p.x < 0 || p.x > 1) p.vx *= -1;
+        if (p.y < 0 || p.y > 1) p.vy *= -1;
+        const dx = mx - p.x * w, dy = my - p.y * h;
+        if (dx * dx + dy * dy < D2 * 2.5) { p.x += (dx / w) * 0.25 * dt; p.y += (dy / h) * 0.25 * dt; }
+      }
+      const paths = [new Path2D(), new Path2D(), new Path2D()];
+      for (let i = 0; i < N; i++) {
+        const a = pts[i], ax = a.x * w, ay = a.y * h;
+        for (let j = i + 1; j < N; j++) {
+          const bx = pts[j].x * w, by = pts[j].y * h, d2 = (ax - bx) ** 2 + (ay - by) ** 2;
+          if (d2 >= D2) continue;
+          const p = paths[Math.min(2, Math.floor((Math.sqrt(d2) / D) * 3))];
+          p.moveTo(ax, ay); p.lineTo(bx, by);
+        }
+        const md = (ax - mx) ** 2 + (ay - my) ** 2;
+        if (md < D2 * 2.25) { paths[0].moveTo(ax, ay); paths[0].lineTo(mx, my); }
+      }
+      ctx.lineWidth = Math.max(1, h / 900);
+      paths.forEach((p, i) => { ctx.strokeStyle = styles[i]; ctx.stroke(p); });
+      ctx.fillStyle = rgba(mixRgb(A, [255, 255, 255], 0.6));
+      const s = Math.max(2, h / 400);
+      for (const p of pts) ctx.fillRect(p.x * w - s / 2, p.y * h - s / 2, s, s);
+    }
+  };
+}
+
 // ---- WebGL shader scenes ----
 const GLSL_LIB = `precision mediump float;
 uniform vec2 R; uniform float T; uniform vec2 M; uniform vec3 C; uniform vec3 C2;
@@ -648,6 +879,58 @@ const FLUID = `void main(){
   vec2 uv=gl_FragCoord.xy/R;
   col*=.45+.55*pow(16.*uv.x*uv.y*(1.-uv.x)*(1.-uv.y),.25);
   gl_FragColor=vec4(col,1.);
+}`;
+
+// Underwater: animated caustics, god rays from the surface and rising bubbles
+const UNDERWATER = `precision highp float;
+float caustic(vec2 p, float t) {
+  vec2 i = p; float c = 1.;
+  for (int n = 0; n < 4; n++) {
+    float tt = t * (1. - 3.5 / float(n + 1));
+    i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x));
+    c += 1. / length(vec2(p.x / (sin(i.x + tt) / .005), p.y / (cos(i.y + tt) / .005)));
+  }
+  c /= 4.; c = 1.17 - pow(c, 1.4);
+  return pow(abs(c), 8.);
+}
+void main(){
+  vec2 uv = gl_FragCoord.xy / R; float asp = R.x / R.y;
+  vec2 p = vec2(uv.x * asp, uv.y) * 1.6 + M * .05;
+  vec3 col = mix(vec3(.0, .04, .1), mix(vec3(.0, .42, .58), C, .2), pow(uv.y, 1.4));
+  float c = caustic(mod(p * 6.2831, 6.2831) - 250., T * .5);
+  col += vec3(.55, .85, .9) * clamp(c, 0., 1.) * (.2 + .8 * uv.y) * .55;
+  float r = 0.;
+  for (int k = 0; k < 3; k++) {
+    float fk = float(k);
+    r += pow(max(0., sin((uv.x * asp + uv.y * .35) * (5. + fk * 3.) + T * (.15 + fk * .07) + fk * 2.)), 14.);
+  }
+  col += vec3(.45, .75, .85) * r * .16 * uv.y * uv.y;
+  vec2 bp = vec2(uv.x * asp * 7., uv.y * 7. - T * .5), cell = floor(bp), f = fract(bp) - .5;
+  float rnd = h(cell);
+  if (rnd > .86) {
+    float d = length(f - vec2(sin(T * 1.5 + rnd * 40.) * .18, 0.)), rad = .07 + (rnd - .86) * .5;
+    col += vec3(.7, .9, 1.) * smoothstep(rad, rad - .025, d) * smoothstep(rad - .07, rad - .03, d) * .55;
+  }
+  gl_FragColor = vec4(col * (.7 + .3 * uv.y), 1.);
+}`;
+
+// Cloudy sky: two drifting fbm cloud layers lit from a soft sun; parallax follows the cursor
+const CLOUDS = `void main(){
+  vec2 uv = gl_FragCoord.xy / R; float asp = R.x / R.y;
+  vec2 p = vec2(uv.x * asp, uv.y);
+  vec3 col = mix(mix(vec3(.66, .8, .95), vec3(.2, .46, .84), uv.y), C, .06);
+  vec2 sp = vec2(asp * .78, .8) + M * .02;
+  float sd = length(p - sp);
+  col += vec3(1., .93, .78) * (exp(-sd * 10.) * .9 + exp(-sd * 2.5) * .18);
+  for (int L = 0; L < 2; L++) {
+    float fl = float(L);
+    vec2 q = p * vec2(1.3 + fl, (1.3 + fl) * 2.4) + vec2(T * (.012 + fl * .016) + fl * 7.3, fl * 3.1) + M * (.04 + fl * .05);
+    float d = fbm(q + fbm(q * 1.6 + T * .01) * .7);
+    float cov = smoothstep(.47, .78, d) * smoothstep(-.1, .4, uv.y + fl * .15);
+    float lit = clamp(fbm(q * 2.1 + vec2(.25, .45)) * 1.35, 0., 1.);
+    col = mix(col, mix(vec3(.66, .7, .79), vec3(1.), lit), cov * (.6 + fl * .2));
+  }
+  gl_FragColor = vec4(col, 1.);
 }`;
 
 function program(gl, vert, frag) {
@@ -772,7 +1055,7 @@ function galaxy(canvas, env) {
   };
 }
 
-const SCENE_BUILDERS = { webcity, festival, snow, rain, galaxy, warp, synthwave, globe, aurora: glScene(AURORA), fluid: glScene(FLUID) };
+const SCENE_BUILDERS = { webcity, festival, snow, rain, ocean, fireflies, matrix, plexus, clouds: glScene(CLOUDS), underwater: glScene(UNDERWATER), galaxy, warp, synthwave, globe, aurora: glScene(AURORA), fluid: glScene(FLUID) };
 
 // ---- Controller: one running scene at a time ----
 const Live = (() => {
