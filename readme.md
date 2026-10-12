@@ -214,6 +214,8 @@ Shortcuts: `1`–`9` open links · `/` search · `W` next wallpaper · `Z` zen �
 - **Focus mode:** Configurable Pomodoro lengths, daily and weekly focus stats, and optional blocking of chosen sites during focus sessions (redirects to a "Stay focused" page). Sessions end on time via the background worker.
 - **New widgets:** News (RSS), Countdown, Habit tracker with streaks, Crypto prices (CoinGecko) and GitHub activity.
 - **Profiles:** Work and Personal setups, each with its own links, dock, widgets, layout and background, switching automatically by day and time.
+- **AI Tools launcher:** Bottom-left button that slides out ChatGPT, Gemini, Copilot, Claude, DeepSeek, Perplexity and Meta AI, and folds them back in on a second click. If the row would cover the app dock, the dock slides away; on narrow windows the pills become icons only.
+- **Smoothness:** Smooth mode (default on) replaces glass blur with tinted glass while a 3D scene animates, since blur over a moving wallpaper is recomputed every frame. Scenes adapt their resolution when frames run late, widget dragging uses GPU transforms, and the world clock redraws once a minute.
 - **Seasonal scenes:** Festival lights (diyas, lanterns, fireworks), Snowfall and Monsoon rain.
 - **Distribution:** Firefox build, static web demo, Hindi store listing, privacy policy, store screenshots → see `store/LISTING.md`.
 

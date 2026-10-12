@@ -777,6 +777,8 @@ const SCENE_BUILDERS = { webcity, festival, snow, rain, galaxy, warp, synthwave,
 // ---- Controller: one running scene at a time ----
 const Live = (() => {
   let host, canvas, scene, args, key = "", raf = 0, last = 0, t0 = 0, q, ro;
+  // Adaptive resolution: if frames arrive late (busy CPU/GPU), render fewer pixels; recover slowly
+  let dyn = 1, gapAvg = 0, settleUntil = 0, goodSince = 0;
   const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
   addEventListener("pointermove", (e) => { mouse.tx = (e.clientX / innerWidth) * 2 - 1; mouse.ty = (e.clientY / innerHeight) * 2 - 1; });
 
@@ -786,21 +788,37 @@ const Live = (() => {
   function frame(ts) {
     raf = requestAnimationFrame(frame);
     if (ts - last < 1000 / q.fps - 2) return;
-    const dt = Math.min(0.1, (ts - last) / 1000);
+    const gap = ts - last, dt = Math.min(0.1, gap / 1000);
     last = ts;
+    adapt(gap, ts);
     mouse.x += (mouse.tx - mouse.x) * 0.04; mouse.y += (mouse.ty - mouse.y) * 0.04;
     scene.draw(now(), canvas.width, canvas.height, mouse, dt);
+  }
+  function adapt(gap, ts) {
+    if (ts < settleUntil) return; // ignore start-up and the frames right after a change
+    const target = 1000 / q.fps;
+    gapAvg = gapAvg ? gapAvg * 0.92 + gap * 0.08 : gap;
+    if (gapAvg > target * 1.35 && dyn > 0.45) {
+      dyn = Math.max(0.45, dyn * 0.85); resize(); goodSince = 0;
+    } else if (gapAvg < target * 1.08 && dyn < 1) {
+      goodSince ||= ts;
+      if (ts - goodSince > 4000) { dyn = Math.min(1, dyn / 0.85); resize(); goodSince = 0; }
+    } else {
+      goodSince = 0;
+    }
   }
   function play() {
     if (raf || !scene || !args.animate || document.hidden) return;
     last = performance.now();
+    settleUntil = last + 2000; gapAvg = 0;
     raf = requestAnimationFrame(frame);
   }
   function pause() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener("visibilitychange", () => (document.hidden ? pause() : play()));
 
   function resize() {
-    const r = Math.min(devicePixelRatio || 1, 2) * q.scale;
+    const r = Math.min(devicePixelRatio || 1, 2) * q.scale * dyn;
+    settleUntil = performance.now() + 1500; gapAvg = 0;
     canvas.width = Math.max(1, Math.round(host.clientWidth * r));
     canvas.height = Math.max(1, Math.round(host.clientHeight * r));
     drawOnce(); // resizing clears the canvas; repaint immediately to avoid a flash
@@ -829,6 +847,7 @@ const Live = (() => {
     stop();
     host = el; key = k; args = { ...opts, host: el, name };
     q = LIVE_QUALITY[opts.quality] || LIVE_QUALITY.medium;
+    dyn = 1;
     const accent = hexRgb(opts.accent);
     build(name, { accent, accent2: hueShift(accent, -45), n: q.n });
     t0 = performance.now() - 8000; // start a few seconds in so a still frame looks settled

@@ -43,6 +43,8 @@ const DEFAULTS = {
   dock: DEFAULT_DOCK,
   dockLocked: true, // locked docks can't be edited until unlocked in settings
   dockVisible: true,
+  aiTools: true, // AI Tools launcher in the bottom-left corner
+  smooth: true, // drop glass blur over animated wallpapers (blur is re-rendered every frame)
   suggest: false, // search suggestions (asks for permission to the suggestion host)
   showFocus: true,
   focus: { text: "", date: "", done: false }, // "today's main focus"

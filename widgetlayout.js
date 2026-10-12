@@ -47,9 +47,11 @@ function placeWidget(w, r) {
 
 function paintWidget(w, st) {
   const tint = st.tint === "light" ? [255, 255, 255] : st.tint === "accent" ? hexRgb(S.accent) : [0, 0, 0];
+  const smooth = document.body.classList.contains("smooth"); // no per-frame blur over a moving wallpaper
+  const bg = smooth && st.blur ? Math.min(90, st.bg + st.blur * 1.2) : st.bg;
   Object.assign(w.style, {
-    background: `rgba(${tint.join(",")},${st.bg / 100})`,
-    backdropFilter: st.blur ? `blur(${st.blur}px)` : "none",
+    background: `rgba(${tint.join(",")},${bg / 100})`,
+    backdropFilter: st.blur && !smooth ? `blur(${st.blur}px)` : "none",
     opacity: st.opacity / 100,
     fontFamily: (WIDGET_FONTS[st.font] || WIDGET_FONTS.system)[1],
     fontSize: st.size + "%",
@@ -90,21 +92,29 @@ function dragWidget(e, w, id, mode) {
   const snap = (v) => Math.round(v / GRID) * GRID;
   w.style.zIndex = z;
   w.classList.add("dragging");
-  const move = (ev) => {
+  let pending = null;
+  const move = (ev) => { // coalesce to one update per frame
+    if (!pending) requestAnimationFrame(() => { apply(pending); pending = null; });
+    pending = ev;
+  };
+  const apply = (ev) => {
+    if (!ev) return;
     const dx = ev.clientX - sx, dy = ev.clientY - sy;
     if (mode === "move") {
-      w.style.left = clamp(snap(b.left + dx), 0, W - b.width) + "px";
-      w.style.top = clamp(snap(b.top + dy), 0, H - b.height) + "px";
+      const x = clamp(snap(b.left + dx), 0, W - b.width) - b.left, y = clamp(snap(b.top + dy), 0, H - b.height) - b.top;
+      w.style.transform = `translate(${x}px, ${y}px)`;
     } else {
       w.style.width = clamp(snap(b.width + dx), MIN_W, W - b.left) + "px";
       w.style.height = clamp(snap(b.height + dy), MIN_H, H - b.top) + "px";
     }
   };
   const up = () => {
+    apply(pending); pending = null;
     removeEventListener("pointermove", move);
     removeEventListener("pointerup", up);
     w.classList.remove("dragging");
     const r = w.getBoundingClientRect();
+    Object.assign(w.style, { transform: "", left: r.left + "px", top: r.top + "px" });
     layoutOf(id).rect = { x: (r.left / W) * 100, y: (r.top / H) * 100, w: (r.width / W) * 100, h: (r.height / H) * 100, z };
     persist();
   };

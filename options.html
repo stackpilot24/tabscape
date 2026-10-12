@@ -47,6 +47,7 @@
     <div class="row">
       <label><input id="dockVisible" type="checkbox"> Show the dock</label>
       <label><input id="dockLocked" type="checkbox"> 🔒 Lock the dock (prevents changes)</label>
+      <label><input id="aiTools" type="checkbox"> Show the AI Tools button (bottom left)</label>
     </div>
     <ul id="dockList" class="links"></ul>
     <form id="dockForm" class="row">
@@ -97,6 +98,7 @@
       <label>Card size <select id="cardSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select></label>
       <label>Card style <select id="cardStyle"><option value="glass">Glass</option><option value="solid">Solid</option><option value="outline">Outline</option></select></label>
       <label><input id="animations" type="checkbox"> Animations (entrance, 3D tilt, parallax, live scenes)</label>
+      <label><input id="smooth" type="checkbox"> Smooth mode (no glass blur over animated scenes — recommended)</label>
     </div>
     <label>Your name (for the greeting) <input id="userName" placeholder="e.g. Alex"></label>
     <button id="replayWelcome" type="button" class="soft">Show the welcome tour again</button>

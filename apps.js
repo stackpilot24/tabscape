@@ -31,6 +31,17 @@ const APP_CATALOG = [
 ];
 const DEFAULT_DOCK = APP_CATALOG.slice(0, 6).map((a) => ({ ...a }));
 
+// AI Tools launcher (bottom left); fixed list, shown with each site's own icon
+const AI_TOOLS = [
+  { name: "ChatGPT", url: "https://chatgpt.com" },
+  { name: "Gemini", url: "https://gemini.google.com" },
+  { name: "Copilot", url: "https://copilot.microsoft.com" },
+  { name: "Claude", url: "https://claude.ai" },
+  { name: "DeepSeek", url: "https://chat.deepseek.com" },
+  { name: "Perplexity", url: "https://www.perplexity.ai" },
+  { name: "Meta AI", url: "https://www.meta.ai" }
+];
+
 // One round dock button; `icon` is a BRAND_ICONS key, an emoji, an image URL, or empty (site icon)
 function appButton(app) {
   const a = document.createElement("a");

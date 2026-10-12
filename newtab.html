@@ -37,6 +37,14 @@
 
   <!-- App dock: buttons come from settings (S.dock); locked by default -->
   <nav id="apps" aria-label="Apps"></nav>
+  <div id="aibar">
+    <button id="aiToggle" aria-expanded="false" aria-controls="aiList" title="AI tools">
+      <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2.5"/><rect x="13" y="3" width="8" height="8" rx="4"/><rect x="3" y="13" width="8" height="8" rx="4"/><path d="M13 13h8v4a4 4 0 0 1-4 4h-4z"/></svg></span>
+      <span>AI Tools</span>
+    </button>
+    <i class="sep"></i>
+    <nav id="aiList" aria-label="AI tools"></nav>
+  </div>
 
   <div id="palette" hidden>
     <div class="pbox">

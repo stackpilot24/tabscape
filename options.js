@@ -181,6 +181,7 @@ $("dockForm").onsubmit = (e) => {
 };
 $("dockLocked").onchange = (e) => save({ dockLocked: e.target.checked }, e.target.checked ? "Dock locked" : "Dock unlocked").then(renderDock);
 $("dockVisible").onchange = (e) => save({ dockVisible: e.target.checked });
+$("aiTools").onchange = (e) => save({ aiTools: e.target.checked });
 
 // ---- Wallpaper ----
 let previewVideoKey = "";
@@ -241,6 +242,7 @@ for (const k of ["dim", "blur"]) {
 for (const k of ["layout", "cardSize", "cardStyle"]) $(k).onchange = (e) => save({ [k]: e.target.value });
 $("accent").onchange = (e) => save({ accent: e.target.value }).then(renderPreview);
 $("animations").onchange = (e) => save({ animations: e.target.checked }).then(renderPreview);
+$("smooth").onchange = (e) => save({ smooth: e.target.checked });
 $("userName").onchange = (e) => save({ userName: e.target.value.trim() });
 
 for (const [name, t] of Object.entries(THEME_PRESETS)) {
@@ -405,6 +407,7 @@ function fillForm() {
   $("cardStyle").value = S.cardStyle; $("animations").checked = S.animations; $("userName").value = S.userName;
   $("zones").value = S.zones.join(", ");
   $("dockLocked").checked = S.dockLocked; $("dockVisible").checked = S.dockVisible;
+  $("aiTools").checked = S.aiTools; $("smooth").checked = S.smooth;
   $("rssUrl").value = S.rssUrl; $("cryptoCoins").value = S.cryptoCoins.join(", ");
   $("cryptoCurrency").value = S.cryptoCurrency; $("githubUser").value = S.githubUser;
   $("showFocus").checked = S.showFocus; $("pomoWork").value = S.pomoWork; $("pomoBreak").value = S.pomoBreak;

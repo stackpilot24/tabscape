@@ -20,7 +20,7 @@ function tick() {
   const part = hr < 5 ? "night" : hr < 12 ? "morning" : hr < 17 ? "afternoon" : hr < 22 ? "evening" : "night";
   $("greeting").textContent = S.userName ? `Good ${part}, ${S.userName}` : "";
   if (S.widgets.pomodoro) updatePomo();
-  if (S.widgets.worldclock) updateZones();
+  if (S.widgets.worldclock && now.getSeconds() === 0) updateZones();
 }
 
 // ---- Appearance ----
@@ -29,6 +29,8 @@ function applyTheme() {
   b.classList.remove(...[...b.classList].filter((c) => /^(layout|size|style)-/.test(c)));
   b.classList.add(`layout-${S.layout}`, `size-${S.cardSize}`, `style-${S.cardStyle}`);
   b.classList.toggle("anim", S.animations && !reducedMotion.matches);
+  // Glass blur over an animated wallpaper is recomputed every frame; Smooth mode swaps it for tinted glass
+  b.classList.toggle("smooth", S.smooth && S.wpMode === "live" && S.animations && !reducedMotion.matches);
   b.style.setProperty("--accent", /^#[0-9a-f]{6}$/i.test(S.accent) ? S.accent : DEFAULTS.accent);
 }
 
@@ -75,6 +77,38 @@ function renderDock() {
   d.hidden = !S.dockVisible || !S.dock.length;
   d.replaceChildren(...S.dock.map(appButton));
 }
+
+// ---- AI Tools launcher (bottom left): pills slide out of the button and back in ----
+function renderAi() {
+  $("aibar").hidden = !S.aiTools;
+  $("aiList").replaceChildren(...AI_TOOLS.map((t, i) => {
+    const a = el("a", "aipill");
+    a.href = t.url; a.title = t.name; a.tabIndex = -1;
+    a.style.setProperty("--d", i);
+    a.style.setProperty("--r", AI_TOOLS.length - 1 - i);
+    a.append(linkIcon({ url: t.url, icon: "" }, "aiico"), el("span", "", t.name));
+    return a;
+  }));
+}
+
+function toggleAi(open = !$("aibar").classList.contains("open")) {
+  const bar = $("aibar");
+  bar.classList.remove("compact");
+  if (open) {
+    // Measure the fully open row (pills keep their size while hidden): too wide for the window
+    // → icons only; reaching the app dock → slide the dock away while the row is open
+    const room = innerWidth - bar.getBoundingClientRect().left - 16;
+    if (bar.scrollWidth > room) bar.classList.add("compact");
+    const dock = $("apps").getBoundingClientRect();
+    document.body.classList.toggle("ai-over-dock", !$("apps").hidden && bar.getBoundingClientRect().left + bar.scrollWidth > dock.left - 12);
+  } else {
+    document.body.classList.remove("ai-over-dock");
+  }
+  bar.classList.toggle("open", open);
+  $("aiToggle").setAttribute("aria-expanded", open);
+  for (const a of $("aiList").children) a.tabIndex = open ? 0 : -1;
+}
+$("aiToggle").onclick = () => toggleAi();
 
 // ---- Today's main focus ----
 function renderFocus() {
@@ -152,6 +186,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (!$("palette").hidden) closePalette();
     else if (!$("wpanel").hidden) closeWidgetPanel();
+    else if ($("aibar").classList.contains("open")) toggleAi(false);
     else if (isEditing()) toggleEdit(false);
     else if (!$("drawer").hidden) toggleDrawer(false);
     else if (document.body.classList.contains("zen")) toggleZen();
@@ -526,6 +561,8 @@ function renderDrawer() {
     field("Card size", seg("cardSize", [["s", "S"], ["m", "M"], ["l", "L"]])),
     field("Card style", seg("cardStyle", [["glass", "Glass"], ["solid", "Solid"], ["outline", "Outline"]])),
     toggle("Animations", "animations"),
+    toggle("Smooth mode (no glass blur over 3D scenes)", "smooth"),
+    toggle("AI Tools button", "aiTools"),
     toggle("24-hour clock", "clock24"),
     more
   );
@@ -538,7 +575,7 @@ function toggleDrawer(open = $("drawer").hidden) {
 
 // ---- Boot ----
 function renderAll() {
-  applyTheme(); renderLinks(); renderDock(); renderFocus(); renderWidgets(); renderWeather(); applyWallpaper(); tick();
+  applyTheme(); renderLinks(); renderDock(); renderAi(); renderFocus(); renderWidgets(); renderWeather(); applyWallpaper(); tick();
   $("engine").value = S.engine;
 }
 

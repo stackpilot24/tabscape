@@ -340,3 +340,43 @@ main { padding-bottom: 100px; }
 .scene.festival { background: radial-gradient(circle at 30% 30%, #ffd36b 0 3%, transparent 4%), radial-gradient(circle at 70% 40%, #ff6fb0 0 3%, transparent 4%), radial-gradient(circle at 55% 75%, #ffae4288 0 8%, transparent 9%), linear-gradient(#06040f, #3a1414); }
 .scene.snow { background: radial-gradient(circle, #fff 0 1px, transparent 1.5px) 0 0/8px 8px, linear-gradient(#0b1a33, #3d5f8f); }
 .scene.rain { background: repeating-linear-gradient(105deg, #bcd8e044 0 1px, transparent 1px 6px), linear-gradient(#0b1216, #24434a); }
+
+/* ---- AI Tools launcher (bottom left) ---- */
+#aibar { position: fixed; left: 18px; bottom: 18px; z-index: 5; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 36px); }
+#aiToggle, .aipill { display: flex; align-items: center; gap: 9px; height: 48px; padding: 0 18px 0 7px; border-radius: 24px; border: 1px solid #ffffff1f; background: #26272cee; color: #fff; font: 500 .95rem "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; white-space: nowrap; text-decoration: none; cursor: pointer; flex: none; }
+#aiToggle { position: relative; z-index: 1; transition: background .2s, translate .2s var(--ease), box-shadow .2s; }
+#aiToggle:hover { background: #33343a; translate: 0 -2px; box-shadow: 0 8px 22px #0007; }
+#aiToggle .ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); transition: rotate .45s var(--ease); }
+#aiToggle .ic svg { width: 18px; height: 18px; fill: #000c; }
+#aibar.open #aiToggle .ic { rotate: 90deg; }
+#aibar.open #aiToggle { background: #33343a; }
+#aibar .sep { width: 3px; height: 36px; border-radius: 2px; background: #ffffff66; flex: none; transform: scaleY(0); transition: transform .25s var(--ease); }
+#aibar.open .sep { transform: scaleY(1); }
+#aiList { display: flex; gap: 10px; pointer-events: none; }
+#aibar.open #aiList { pointer-events: auto; }
+/* Slide out left-to-right when opening, fold back right-to-left when closing */
+.aipill { opacity: 0; transform: translateX(-28px) scale(.92); transition: opacity .22s ease calc(var(--r) * 28ms), transform .3s var(--ease) calc(var(--r) * 28ms), translate .2s var(--ease), background .2s, box-shadow .2s; }
+#aibar.open .aipill { opacity: 1; transform: none; transition: opacity .28s ease calc(var(--d) * 45ms + 40ms), transform .42s cubic-bezier(.2, .9, .25, 1.15) calc(var(--d) * 45ms + 40ms), translate .2s var(--ease), background .2s, box-shadow .2s; }
+.aipill:hover, .aipill:focus-visible { background: color-mix(in srgb, var(--accent) 28%, #26272c); translate: 0 -3px; box-shadow: 0 10px 24px #0008; outline: none; }
+.aipill .aiico { width: 34px; height: 34px; padding: 6px; border-radius: 50%; background: #fff; flex: none; }
+#aibar.compact .aipill { padding: 0 7px; }
+#aibar.compact .aipill span { display: none; }
+#apps { transition: translate .4s var(--ease), opacity .3s; }
+body.ai-over-dock #apps { translate: -50% 160%; opacity: 0; pointer-events: none; }
+#credit { left: auto; right: 20px; text-align: right; }
+.layout-minimal #aibar { bottom: 18px; }
+@media (max-width: 700px) { #aiToggle > span:last-child { display: none; } #aiToggle { padding: 0 7px; } }
+
+/* ---- Smooth mode: no backdrop blur while a 3D scene animates behind (it's re-blurred every frame) ---- */
+.smooth .card, .smooth .hbtn, .smooth #search, .smooth #apps, .smooth #drawer, .smooth #palette, .smooth #suggest,
+.smooth #editbar, .smooth #wpanel, .smooth #welcome, .smooth.layout-minimal #grid { backdrop-filter: none; }
+.smooth .card { background: #12131acc; }
+.smooth .card:hover { background: #1d1f29e6; }
+.smooth.style-solid .card { background: color-mix(in srgb, var(--accent) 16%, #0d0f16f0); }
+.smooth.style-outline .card { background: #0000001f; }
+.smooth .hbtn { background: #12131aa6; }
+.smooth #search { background: #12131ab8; }
+.smooth #apps { background: #0b0c10a6; }
+.smooth #palette { background: #000a; }
+.smooth #welcome { background: #000b; }
+.smooth.layout-minimal #grid { background: #0b0c10b3; }
