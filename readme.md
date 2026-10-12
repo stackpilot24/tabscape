@@ -44,17 +44,23 @@ A minimal, fast, and feature-rich New Tab replacement for Google Chrome. Turn yo
 
 ```text
 customizable-tab/
-├── manifest.json         # Chrome Extension Manifest V3 configuration
-├── newtab.html           # Main user-facing dashboard
-├── newtab.css            # Dashboard styles (frosted cards, responsive grid)
-├── newtab.js             # Wallpaper scheduler, bookmark renderer, search, palette, widgets
-├── widgetlayout.js       # Drag / resize / per-widget styling of dashboard widgets
+├── manifest.json         # Manifest V3 (name/description come from _locales)
+├── _locales/{en,hi}/     # Store name & description (English, Hindi)
+├── newtab.html/.css/.js  # Dashboard: links, dock, search + suggestions, focus line, palette, drawer
+├── widgets.js            # All widgets (to-do, notes, pomodoro, calendar, RSS, habits, crypto, …)
+├── widgetlayout.js       # Drag / resize / per-widget styling
+├── welcome.js            # First-run welcome tour
 ├── live.js               # Live 3D wallpaper scenes (WebGL + canvas)
-├── shared.js             # Settings defaults, sync storage, migrations
-├── options.html          # Backend Admin Panel interface
-├── options.css           # Admin Panel styles & layout
-├── options.js            # Link CRUD operations, storage handlers, import/export
-└── icons/                # Extension store icons (16px, 48px, 128px)
+├── apps.js               # App dock catalog and brand icons
+├── profiles.js           # Work / Personal profiles with schedules
+├── shared.js             # Settings defaults, sync storage, themes, imports, pomodoro logic
+├── background.js         # Service worker: focus-session timer and site blocking
+├── blocked.html/.js      # "Stay focused" page shown for blocked sites
+├── options.html/.css/.js # Settings page
+├── dev.py, dev/          # Localhost dev server + chrome.* stand-in
+├── build.py              # Packages Chrome / Firefox zips and the web demo
+├── store/                # Store listing text, screenshots and promo tile
+└── PRIVACY.md            # Privacy policy
 ```
 
 ---
@@ -195,3 +201,23 @@ python build.py --bump patch  # bump manifest version, then build
 - **Free-Form Widgets:** The dashboard never scrolls; widgets float on top. Press `E` (or the grid button) to drag them anywhere, resize from the corner, and style each one with ⚙: background darkness & tint, blur, opacity, font, text size, text color, corners, border. *Style all* sets the default look; layouts are saved as screen percentages so they adapt to any display.
 
 Shortcuts: `1`–`9` open links · `/` search · `W` next wallpaper · `Z` zen · `C` customize · `E` arrange widgets · `Ctrl+K` palette · `Esc` close.
+
+
+## 🚀 v1.3 Additions
+
+- **Welcome tour:** On first run you set your name, pick a look, choose dock apps, import links and choose widgets. Replay it from Ctrl+K or Settings.
+- **Editable app dock:** Add apps from an 18-app catalog or your own URL/emoji, reorder them, hide the dock, and 🔒 lock it so it never changes. It is locked by default.
+- **Import links:** One click turns your bookmarks bar (one group per folder) or most-visited sites into link groups. Uses optional permissions.
+- **Search suggestions:** Your matching links appear first, then Google/DuckDuckGo suggestions. Opt-in.
+- **Theme presets and sharing:** Eight presets, plus "Copy my theme" codes (`CTAB1:…`) that anyone can paste in.
+- **Today's main focus:** A daily goal under the greeting with a checkbox. It resets each day.
+- **Focus mode:** Configurable Pomodoro lengths, daily and weekly focus stats, and optional blocking of chosen sites during focus sessions (redirects to a "Stay focused" page). Sessions end on time via the background worker.
+- **New widgets:** News (RSS), Countdown, Habit tracker with streaks, Crypto prices (CoinGecko) and GitHub activity.
+- **Profiles:** Work and Personal setups, each with its own links, dock, widgets, layout and background, switching automatically by day and time.
+- **Seasonal scenes:** Festival lights (diyas, lanterns, fireworks), Snowfall and Monsoon rain.
+- **Distribution:** Firefox build, static web demo, Hindi store listing, privacy policy, store screenshots → see `store/LISTING.md`.
+
+```bash
+python build.py --target all   # Chrome/Edge zip, Firefox zip, web demo
+python dev.py                  # run at http://localhost:8000
+```

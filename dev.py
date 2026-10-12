@@ -11,7 +11,7 @@ import http.server, pathlib, sys
 
 ROOT = pathlib.Path(__file__).parent
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-STUB = '<script src="dev/chrome-stub.js"></script>\n  <script src="shared.js">'
+STUB = '<script src="dev/chrome-stub.js"></script>\n  <script src="apps.js">'
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -22,7 +22,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = self.path.split("?")[0].lstrip("/") or "newtab.html"
         file = ROOT / path
         if file.suffix == ".html" and file.is_file():
-            body = file.read_text(encoding="utf-8").replace('<script src="shared.js">', STUB, 1).encode()
+            body = file.read_text(encoding="utf-8").replace('<script src="apps.js">', STUB, 1).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))

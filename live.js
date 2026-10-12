@@ -8,7 +8,10 @@ const LIVE_SCENES = {
   synthwave: "Synthwave",
   globe: "Dotted globe",
   aurora: "Aurora",
-  fluid: "Liquid"
+  fluid: "Liquid",
+  festival: "Festival lights",
+  snow: "Snowfall",
+  rain: "Monsoon rain"
 };
 const LIVE_QUALITY = {
   low: { scale: 0.5, fps: 30, n: 0.5 },
@@ -23,6 +26,18 @@ const hexRgb = (h) => {
 };
 const mixRgb = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
 const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+// Rotates an RGB color's hue by `deg` (keeps lightness and saturation): the scenes' second color
+function hueShift([r, g, b], deg) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [r, g, b].map((v) => Math.round(v * 255));
+  const sat = d / (1 - Math.abs(2 * l - 1));
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (((h * 60 + deg) % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * sat, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
+  const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [r1, g1, b1].map((v) => Math.round((v + m) * 255));
+}
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 
 // ---- Canvas 2D scenes ----
@@ -346,6 +361,249 @@ function webcity(canvas, env) {
   };
 }
 
+// Static backdrop rendered once per size; scenes blit it instead of redrawing gradients every frame
+function backdrop(w, h, paint) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  paint(c.getContext("2d"), w, h);
+  return c;
+}
+// Soft round glow, drawn scaled with drawImage (far cheaper than a radial gradient per frame)
+const glowSprites = new Map();
+function glow(rgb) {
+  const key = rgb.join();
+  if (!glowSprites.has(key)) {
+    const c = document.createElement("canvas"), g = c.getContext("2d");
+    c.width = c.height = 64;
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, rgba(rgb)); gr.addColorStop(0.4, rgba(rgb, 0.45)); gr.addColorStop(1, rgba(rgb, 0));
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    glowSprites.set(key, c);
+  }
+  return glowSprites.get(key);
+}
+
+// Festival night: fireworks, rising sky lanterns, warm bokeh and a row of flickering diyas
+function festival(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const A = env.accent, warm = [[255, 190, 90], [255, 140, 60], [255, 215, 130], A];
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  const bokeh = Array.from({ length: Math.round(36 * env.n) }, () => ({ x: Math.random(), y: Math.random(), r: 0.01 + Math.random() * 0.035, s: 0.004 + Math.random() * 0.01, c: pick(warm), a: 0.08 + Math.random() * 0.12 }));
+  const lantern = (init) => ({ x: Math.random(), y: init ? Math.random() : 1.1, s: 0.012 + Math.random() * 0.018, size: 0.012 + Math.random() * 0.016, ph: Math.random() * 6 });
+  const lanterns = Array.from({ length: Math.round(14 * env.n) }, () => lantern(true));
+  const BURST = [A, [255, 215, 90], [255, 110, 180], [120, 255, 170], [140, 190, 255]];
+  let sparks = [], nextBurst = 0.5, bg = null;
+  const flame = [255, 160, 60];
+
+  function burst(w, h) {
+    const x = w * (0.15 + Math.random() * 0.7), y = h * (0.12 + Math.random() * 0.3), c = pick(BURST), n = Math.round(70 * env.n) + 20;
+    const speed = Math.min(w, h) * (0.18 + Math.random() * 0.12);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 6.283 + Math.random() * 0.1, v = speed * (0.6 + Math.random() * 0.4);
+      sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, c });
+    }
+  }
+
+  return {
+    draw(t, w, h, m, dt) {
+      if (bg?.width !== w || bg?.height !== h) bg = backdrop(w, h, (g, w, h) => {
+        const gr = g.createLinearGradient(0, 0, 0, h);
+        gr.addColorStop(0, "#06040f"); gr.addColorStop(0.6, "#180a1f"); gr.addColorStop(1, rgba(mixRgb(A, [40, 12, 12], 0.65)));
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      });
+      ctx.drawImage(bg, 0, 0);
+      ctx.globalCompositeOperation = "lighter";
+      for (const b of bokeh) {
+        b.y -= b.s * dt; if (b.y < -0.1) b.y = 1.1;
+        const x = b.x * w - m.x * 15, y = b.y * h, r = b.r * Math.min(w, h) * 2;
+        ctx.globalAlpha = b.a;
+        ctx.drawImage(glow(b.c), x - r, y - r, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 1;
+      if (t > nextBurst) { burst(w, h); nextBurst = t + 1 + Math.random() * 2; }
+      const grav = h * 0.12;
+      sparks = sparks.filter((p) => (p.life -= dt * 0.55) > 0);
+      for (const p of sparks) {
+        const px = p.x, py = p.y;
+        p.vx *= 1 - dt * 0.9; p.vy = p.vy * (1 - dt * 0.9) + grav * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        ctx.strokeStyle = rgba(p.c, p.life); ctx.lineWidth = Math.max(1, h / 500);
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(p.x, p.y); ctx.stroke();
+      }
+      for (const l of lanterns) {
+        l.y -= l.s * dt; if (l.y < -0.1) Object.assign(l, lantern(false));
+        const s = l.size * Math.min(w, h) * 2, x = l.x * w + Math.sin(t * 0.5 + l.ph) * s - m.x * 30, y = l.y * h;
+        const flick = 0.85 + 0.15 * Math.sin(t * 7 + l.ph * 3);
+        ctx.globalAlpha = 0.35 * flick;
+        ctx.drawImage(glow(flame), x - s * 3, y - s * 3, s * 6, s * 6);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `rgba(255,${(150 + 40 * flick) | 0},70,.9)`;
+        ctx.beginPath(); ctx.moveTo(x - s * 0.45, y - s * 0.6); ctx.lineTo(x + s * 0.45, y - s * 0.6); ctx.lineTo(x + s * 0.32, y + s * 0.6); ctx.lineTo(x - s * 0.32, y + s * 0.6); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+      // diyas along the bottom
+      const size = Math.max(14, h * 0.035), n = Math.ceil(w / (size * 4)), base = h - size * 0.6;
+      for (let i = 0; i < n; i++) {
+        const x = (i + 0.5) * (w / n), f = 0.8 + 0.2 * Math.sin(t * 9 + i * 1.7);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.4 * f;
+        ctx.drawImage(glow(flame), x - size * 3, base - size * 3.9, size * 6, size * 6);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `rgba(255,${(200 + 40 * f) | 0},120,.95)`;
+        ctx.beginPath(); ctx.ellipse(x, base - size * 0.75, size * 0.18, size * 0.45 * f, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "#7a3414";
+        ctx.beginPath(); ctx.ellipse(x, base - size * 0.25, size * 0.7, size * 0.32, 0, 0, Math.PI); ctx.fill();
+      }
+    }
+  };
+}
+
+// Pre-rendered pine-forest layer with snowy tips
+function pineLayer(w, h, { horizon, minH, maxH, color, snow, spacing }) {
+  const c = document.createElement("canvas"), pad = Math.round(w * 0.08);
+  c.width = w + pad * 2; c.height = h;
+  const g = c.getContext("2d");
+  g.fillStyle = color;
+  g.fillRect(0, h * horizon, c.width, h);
+  for (let x = -20; x < c.width + 20; x += spacing * (0.6 + Math.random() * 0.8)) {
+    const th = h * (minH + Math.random() * (maxH - minH)), tw = th * 0.42, base = h * horizon + Math.random() * h * 0.02;
+    g.fillStyle = color;
+    for (let k = 0; k < 3; k++) {
+      const top = base - th + k * th * 0.25, bot = base - th * (0.45 - k * 0.2);
+      g.beginPath(); g.moveTo(x, top); g.lineTo(x + tw * (0.5 + k * 0.25), bot); g.lineTo(x - tw * (0.5 + k * 0.25), bot); g.closePath(); g.fill();
+      g.fillStyle = snow;
+      g.beginPath(); g.moveTo(x, top); g.lineTo(x + tw * 0.16, top + th * 0.08); g.lineTo(x - tw * 0.16, top + th * 0.08); g.closePath(); g.fill();
+      g.fillStyle = color;
+    }
+  }
+  return { c, pad };
+}
+
+// Snowy night: three pine layers in depth, flakes falling between them, wind follows the mouse
+function snow(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const A = env.accent, N = Math.round(420 * env.n);
+  const flakes = Array.from({ length: N }, () => ({ x: Math.random(), y: Math.random(), z: 0.3 + Math.random() * 0.7, ph: Math.random() * 6 }));
+  let W = 0, H = 0, layers = [], bg = null;
+  const band = (lo, hi) => flakes.filter((f) => f.z >= lo && f.z < hi);
+  const bands = [band(0, 0.55), band(0.55, 0.8), band(0.8, 1.01)];
+
+  function drawFlakes(list, t, w, h, m, dt) {
+    const wind = m.x * 0.06 + Math.sin(t * 0.3) * 0.02;
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.beginPath();
+    for (const f of list) {
+      f.y += (0.025 + f.z * 0.07) * dt;
+      f.x += (wind * f.z + Math.sin(t + f.ph) * 0.004) * dt;
+      if (f.y > 1.02) { f.y = -0.02; f.x = Math.random(); }
+      if (f.x > 1.02) f.x -= 1.04; else if (f.x < -0.02) f.x += 1.04;
+      const r = (0.6 + f.z * 2.2) * (h / 900);
+      ctx.moveTo(f.x * w + r, f.y * h); ctx.arc(f.x * w, f.y * h, r, 0, 6.283);
+    }
+    ctx.fill();
+  }
+
+  return {
+    draw(t, w, h, m, dt) {
+      if (w !== W || h !== H) {
+        W = w; H = h;
+        layers = [
+          { ...pineLayer(w, h, { horizon: 0.72, minH: 0.12, maxH: 0.22, color: "#3a5478", snow: "#c9d8ee", spacing: w * 0.03 }), depth: 0.2 },
+          { ...pineLayer(w, h, { horizon: 0.82, minH: 0.16, maxH: 0.3, color: "#1d2d47", snow: "#dfe8f6", spacing: w * 0.05 }), depth: 0.5 },
+          { ...pineLayer(w, h, { horizon: 0.93, minH: 0.22, maxH: 0.42, color: "#0b1322", snow: "#eef3fb", spacing: w * 0.09 }), depth: 1 }
+        ];
+        bg = backdrop(w, h, (g, w, h) => {
+          let gr = g.createLinearGradient(0, 0, 0, h);
+          gr.addColorStop(0, "#081428"); gr.addColorStop(0.6, "#1f3a63"); gr.addColorStop(1, rgba(mixRgb(A, [70, 100, 150], 0.6)));
+          g.fillStyle = gr; g.fillRect(0, 0, w, h);
+          const mx = w * 0.22, my = h * 0.2, mr = Math.min(w, h) * 0.07;
+          gr = g.createRadialGradient(mx, my, mr, mx, my, mr * 5);
+          gr.addColorStop(0, "rgba(220,235,255,.25)"); gr.addColorStop(1, "rgba(220,235,255,0)");
+          g.fillStyle = gr; g.fillRect(0, 0, w, h);
+          g.fillStyle = "#eef4ff"; g.beginPath(); g.arc(mx, my, mr, 0, 6.283); g.fill();
+        });
+      }
+      ctx.drawImage(bg, 0, 0);
+      layers.forEach((L, i) => {
+        drawFlakes(bands[i], t, w, h, m, dt);
+        ctx.drawImage(L.c, -L.pad - m.x * L.pad * L.depth, 0);
+      });
+      ctx.fillStyle = "#e9f0fa";
+      ctx.fillRect(0, h * 0.965, w, h * 0.04);
+    }
+  };
+}
+
+// Monsoon: slanted rain in depth over hills and a lake with ripples, plus the odd lightning flash
+function rain(canvas, env) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const A = env.accent, N = Math.round(650 * env.n);
+  const drops = Array.from({ length: N }, () => ({ x: Math.random() * 1.4 - 0.2, y: Math.random(), z: 0.3 + Math.random() * 0.7 }));
+  const hill = (seed, n) => Array.from({ length: n + 1 }, (_, i) => 0.5 + 0.3 * Math.sin(i / n * 5 + seed) + 0.2 * Math.sin(i / n * 13 + seed * 2));
+  const far = hill(0.7, 60), near = hill(2.3, 40);
+  let ripples = [], flash = 0, nextFlash = 6, bolt = null, bg = null;
+
+  function hills(g, pts, base, height, color, w) {
+    g.fillStyle = color;
+    g.beginPath(); g.moveTo(0, base);
+    pts.forEach((v, i) => g.lineTo((i / (pts.length - 1)) * w, base - v * height));
+    g.lineTo(w, base); g.closePath(); g.fill();
+  }
+
+  return {
+    draw(t, w, h, m, dt) {
+      const lake = h * 0.74;
+      if (bg?.width !== w || bg?.height !== h) bg = backdrop(w, h, (g) => {
+        let gr = g.createLinearGradient(0, 0, 0, lake);
+        gr.addColorStop(0, "#0b1216"); gr.addColorStop(1, rgba(mixRgb(A, [40, 60, 66], 0.75)));
+        g.fillStyle = gr; g.fillRect(0, 0, w, lake);
+        hills(g, far, lake, h * 0.16, "#1a272c", w);
+        hills(g, near, lake, h * 0.09, "#0e171a", w);
+        gr = g.createLinearGradient(0, lake, 0, h);
+        gr.addColorStop(0, rgba(mixRgb(A, [30, 48, 54], 0.8))); gr.addColorStop(1, "#05090b");
+        g.fillStyle = gr; g.fillRect(0, lake, w, h - lake);
+      });
+      ctx.drawImage(bg, 0, 0);
+
+      // ripples on the lake
+      if (dt) for (let k = 0; k < 40 * dt * env.n * 3; k++) ripples.push({ x: Math.random() * w, y: lake + Math.random() * (h - lake), r: 0, life: 1 });
+      ripples = ripples.filter((r) => (r.life -= dt * 1.3) > 0);
+      ctx.lineWidth = 1;
+      for (const r of ripples) {
+        r.r += dt * h * 0.03;
+        const depth = (r.y - lake) / (h - lake);
+        ctx.strokeStyle = `rgba(200,230,235,${r.life * 0.35})`;
+        ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r * (0.5 + depth), r.r * 0.25 * (0.5 + depth), 0, 0, 6.283); ctx.stroke();
+      }
+
+      // rain in three depth bands
+      const wind = 0.18 + m.x * 0.25, paths = [new Path2D(), new Path2D(), new Path2D()];
+      for (const d of drops) {
+        d.y += (0.9 + d.z * 1.2) * dt; d.x += wind * d.z * dt;
+        if (d.y > 1) { d.y = -0.05; d.x = Math.random() * 1.4 - 0.2 - wind * 0.3; }
+        const len = (0.015 + d.z * 0.035) * h, x = d.x * w, y = d.y * h;
+        const p = paths[d.z < 0.55 ? 0 : d.z < 0.8 ? 1 : 2];
+        p.moveTo(x, y); p.lineTo(x - wind * len * 0.9, y - len);
+      }
+      paths.forEach((p, i) => { ctx.strokeStyle = `rgba(190,215,225,${0.18 + i * 0.16})`; ctx.lineWidth = (0.6 + i * 0.5) * Math.max(1, h / 900); ctx.stroke(p); });
+
+      // lightning
+      if (t > nextFlash) {
+        flash = 1; nextFlash = t + 7 + Math.random() * 10;
+        bolt = [[w * (0.2 + Math.random() * 0.6), 0]];
+        while (bolt[bolt.length - 1][1] < lake * 0.8) { const [x, y] = bolt[bolt.length - 1]; bolt.push([x + (Math.random() - 0.5) * w * 0.05, y + h * 0.05]); }
+      }
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(220,235,255,${flash * 0.25})`; ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = `rgba(255,255,255,${flash})`; ctx.lineWidth = 2;
+        ctx.beginPath(); bolt.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+        flash -= dt * 2.5;
+      }
+    }
+  };
+}
+
 // ---- WebGL shader scenes ----
 const GLSL_LIB = `precision mediump float;
 uniform vec2 R; uniform float T; uniform vec2 M; uniform vec3 C; uniform vec3 C2;
@@ -514,7 +772,7 @@ function galaxy(canvas, env) {
   };
 }
 
-const SCENE_BUILDERS = { webcity, galaxy, warp, synthwave, globe, aurora: glScene(AURORA), fluid: glScene(FLUID) };
+const SCENE_BUILDERS = { webcity, festival, snow, rain, galaxy, warp, synthwave, globe, aurora: glScene(AURORA), fluid: glScene(FLUID) };
 
 // ---- Controller: one running scene at a time ----
 const Live = (() => {
@@ -572,7 +830,7 @@ const Live = (() => {
     host = el; key = k; args = { ...opts, host: el, name };
     q = LIVE_QUALITY[opts.quality] || LIVE_QUALITY.medium;
     const accent = hexRgb(opts.accent);
-    build(name, { accent, accent2: [accent[2], accent[0], accent[1]], n: q.n });
+    build(name, { accent, accent2: hueShift(accent, -45), n: q.n });
     t0 = performance.now() - 8000; // start a few seconds in so a still frame looks settled
     ro = new ResizeObserver(resize);
     ro.observe(host);

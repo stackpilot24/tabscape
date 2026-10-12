@@ -1,0 +1,4 @@
+{
+  "appName": { "message": "Customizable TAB", "description": "Extension name shown in the Chrome Web Store and chrome://extensions" },
+  "appDesc": { "message": "Live 3D wallpapers, an app dock, drag-anywhere widgets and focus tools on every new tab.", "description": "Short description (max 132 characters)" }
+}

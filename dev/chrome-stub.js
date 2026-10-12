@@ -36,6 +36,8 @@
   });
   window.chrome = {
     storage: { local: area("local"), sync: area("sync"), onChanged: { addListener: (fn) => listeners.push(fn) } },
-    tabs: { getCurrent: async () => { throw new Error("chrome.tabs is unavailable on localhost"); } }
+    tabs: { getCurrent: async () => { throw new Error("chrome.tabs is unavailable on localhost"); } },
+    // Optional permissions can't be granted outside the extension; features degrade gracefully
+    permissions: { contains: async () => false, request: async () => false }
   };
 })();

@@ -9,11 +9,12 @@ function showStorage(where) {
   $("storage").textContent = where === "sync" ? "✓ Synced to Chrome account" : "Saved on this device only (sync quota full)";
   $("storage").className = where;
 }
+// Edited on the new tab page; re-read before saving so this page never overwrites them with stale copies
+const DASHBOARD_KEYS = ["todos", "notes", "focus", "habits", "countdowns", "widgetLayout", "widgetStyle", "onboarded"];
 async function save(patch, msg = "Saved", keepWidgetData = false) {
-  // To-dos and notes are edited on the new tab page; don't clobber them with stale copies
   if (!keepWidgetData) {
     const latest = await getSettings();
-    S.todos = latest.todos; S.notes = latest.notes;
+    if (latest.activeProfile === S.activeProfile) for (const k of DASHBOARD_KEYS) S[k] = latest[k];
   }
   Object.assign(S, patch);
   showStorage(await saveSettings(S));
@@ -117,6 +118,70 @@ $("groupForm").onsubmit = (e) => {
   saveGroups();
 };
 
+// ---- Import from the browser ----
+async function importLinks(kind) {
+  try {
+    const groups = await importBrowserLinks(kind);
+    const n = groups.reduce((t, g) => t + g.links.length, 0);
+    if (!n) return toast("Nothing to import");
+    const isExample = JSON.stringify(S.groups) === JSON.stringify(DEFAULTS.groups);
+    S.groups = isExample ? groups : [...S.groups, ...groups];
+    await saveGroups();
+    toast(`Imported ${n} links`);
+  } catch (err) {
+    toast(err.message === "permission denied" ? "Permission not granted" : "Import failed: " + err.message);
+  }
+}
+$("importBookmarks").onclick = () => importLinks("bookmarks");
+$("importTop").onclick = () => importLinks("topSites");
+
+// ---- App dock ----
+const saveDock = () => save({ dock: S.dock }).then(renderDock);
+
+function renderDock() {
+  const locked = S.dockLocked;
+  for (const e of $("dockForm").elements) e.disabled = locked;
+  $("dockList").replaceChildren(...S.dock.map((app, i) => {
+    const li = el("li", "dockrow"), icon = appButton(app);
+    icon.removeAttribute("href");
+    icon.className = "dockicon";
+    const move = (d) => () => {
+      const j = i + d;
+      if (j < 0 || j >= S.dock.length) return;
+      [S.dock[i], S.dock[j]] = [S.dock[j], S.dock[i]];
+      saveDock();
+    };
+    const iconInput = input(BRAND_ICONS[app.icon] ? "" : app.icon, "", (v) => { app.icon = v; saveDock(); });
+    iconInput.placeholder = BRAND_ICONS[app.icon] ? "Built-in icon" : "Site icon";
+    li.append(icon,
+      input(app.name, "", (v) => { app.name = v || app.name; saveDock(); }),
+      input(app.url, "url", (v) => { app.url = normUrl(v); saveDock(); }),
+      iconInput,
+      btn("↑", move(-1)), btn("↓", move(1)),
+      btn("✕", () => { S.dock.splice(i, 1); saveDock(); }, "del"));
+    li.querySelectorAll("input, button").forEach((e) => (e.disabled = locked));
+    return li;
+  }));
+  if (!S.dock.length) $("dockList").append(el("li", "empty", "The dock is empty"));
+}
+
+for (const app of APP_CATALOG) $("dockCatalog").add(new Option(app.name, app.url));
+$("dockCatalog").onchange = (e) => {
+  const app = APP_CATALOG.find((a) => a.url === e.target.value);
+  e.target.value = "";
+  if (!app || S.dockLocked) return;
+  S.dock.push({ ...app });
+  saveDock();
+};
+$("dockForm").onsubmit = (e) => {
+  e.preventDefault();
+  S.dock.push({ name: $("dName").value.trim(), url: normUrl($("dUrl").value.trim()), icon: $("dIcon").value.trim() });
+  ["dName", "dUrl", "dIcon"].forEach((id) => ($(id).value = ""));
+  saveDock();
+};
+$("dockLocked").onchange = (e) => save({ dockLocked: e.target.checked }, e.target.checked ? "Dock locked" : "Dock unlocked").then(renderDock);
+$("dockVisible").onchange = (e) => save({ dockVisible: e.target.checked });
+
 // ---- Wallpaper ----
 let previewVideoKey = "";
 async function renderPreview() {
@@ -178,6 +243,16 @@ $("accent").onchange = (e) => save({ accent: e.target.value }).then(renderPrevie
 $("animations").onchange = (e) => save({ animations: e.target.checked }).then(renderPreview);
 $("userName").onchange = (e) => save({ userName: e.target.value.trim() });
 
+for (const [name, t] of Object.entries(THEME_PRESETS)) {
+  $("presets").append(btn(name, () => save(t, `Theme “${name}” applied`).then(fillForm), "soft"));
+}
+$("applyCode").onclick = () => {
+  try { save(decodeTheme($("themeCode").value), "Theme applied").then(fillForm); $("themeCode").value = ""; }
+  catch { toast("That isn't a valid theme code"); }
+};
+$("copyCode").onclick = async () => { await navigator.clipboard.writeText(encodeTheme(S)); toast("Theme code copied — share it with anyone"); };
+$("replayWelcome").onclick = () => save({ onboarded: false }, "Open a new tab to see the welcome tour", true);
+
 // ---- Widgets ----
 document.querySelectorAll("[data-widget]").forEach((c) => {
   c.onchange = () => save({ widgets: { ...S.widgets, [c.dataset.widget]: c.checked } });
@@ -185,10 +260,111 @@ document.querySelectorAll("[data-widget]").forEach((c) => {
 $("weatherCity").onchange = (e) => save({ weatherCity: e.target.value.trim() });
 $("tempUnit").onchange = (e) => save({ tempUnit: e.target.value });
 $("zones").onchange = (e) => save({ zones: e.target.value.split(",").map((z) => z.trim()).filter(Boolean) });
+$("rssSave").onclick = async () => {
+  const raw = $("rssUrl").value.trim();
+  if (!raw) return save({ rssUrl: "" }, "Feed removed");
+  let url;
+  try { url = new URL(normUrl(raw)); } catch { return toast("That isn't a valid URL"); }
+  if (!(await requestOrigins([url.origin + "/*"]))) return toast("Access not granted — the feed can't load without it");
+  save({ rssUrl: url.href, widgets: { ...S.widgets, rss: true } }, "Feed saved").then(fillForm);
+};
+$("cryptoCoins").onchange = (e) => save({ cryptoCoins: e.target.value.toLowerCase().split(",").map((c) => c.trim().replace(/\s+/g, "-")).filter(Boolean) });
+$("cryptoCurrency").onchange = (e) => save({ cryptoCurrency: e.target.value });
+$("githubUser").onchange = (e) => save({ githubUser: e.target.value.trim().replace(/^@/, "") });
+
+// ---- Focus ----
+$("showFocus").onchange = (e) => save({ showFocus: e.target.checked });
+for (const [k, max] of [["pomoWork", 180], ["pomoBreak", 60]]) {
+  $(k).onchange = (e) => {
+    const v = Math.min(max, Math.max(1, Math.round(+e.target.value || DEFAULTS[k])));
+    e.target.value = v;
+    save({ [k]: v });
+  };
+}
+async function saveBlocking(enable) {
+  const sites = parseSites($("blockSites").value);
+  $("blockSites").value = sites.join("\n");
+  if (enable && sites.length && !(await requestOrigins(siteOrigins(sites)))) {
+    $("blockDuringFocus").checked = false;
+    return toast("Access not granted — sites can't be blocked without it");
+  }
+  save({ blockSites: sites, blockDuringFocus: enable }, enable ? `Blocking ${sites.length} site(s) during focus` : "Saved");
+}
+$("blockDuringFocus").onchange = (e) => saveBlocking(e.target.checked);
+$("blockSave").onclick = () => { $("blockDuringFocus").checked = true; saveBlocking(true); };
+
+async function showFocusStats() {
+  const { focusLog = {} } = await chrome.storage.local.get("focusLog");
+  const week = Object.entries(focusLog).filter(([d]) => d >= isoDate(new Date(Date.now() - 6 * 864e5)));
+  const sessions = week.reduce((t, [, v]) => t + v.sessions, 0), minutes = week.reduce((t, [, v]) => t + v.minutes, 0);
+  $("focusStats").textContent = sessions ? `Last 7 days: ${sessions} focus sessions · ${Math.floor(minutes / 60)} h ${minutes % 60} min` : "No focus sessions logged yet.";
+}
 
 // ---- Search, clock & shortcuts ----
 for (const k in ENGINES) $("engine").add(new Option(k[0].toUpperCase() + k.slice(1), k));
 $("engine").onchange = (e) => save({ engine: e.target.value });
+$("suggest").onchange = async (e) => {
+  if (e.target.checked && !(await requestOrigins(["https://suggestqueries.google.com/*", "https://duckduckgo.com/*"]))) {
+    e.target.checked = false;
+    return toast("Access not granted");
+  }
+  save({ suggest: e.target.checked });
+};
+
+// ---- Profiles ----
+async function useProfile(name) {
+  switchProfile(S, name);
+  S.profileAuto = false;
+  await save({}, `Switched to ${name || "Main"}`, true);
+  fillForm();
+}
+function renderProfiles() {
+  $("profileBanner").hidden = !S.activeProfile;
+  $("profileBanner").textContent = `Editing profile “${S.activeProfile}” — links, dock, widgets, layout and background changes apply to this profile.`;
+  $("profileAuto").checked = S.profileAuto;
+  $("activeProfile").replaceChildren(new Option("Main", ""), ...S.profiles.map((p) => new Option(p.name, p.name)));
+  $("activeProfile").value = S.activeProfile;
+  $("profileList").replaceChildren(...S.profiles.map((p, i) => {
+    const row = el("div", "profile"), days = el("span", "days");
+    DAY_NAMES.forEach((d, di) => {
+      const l = el("label"), c = el("input");
+      c.type = "checkbox"; c.checked = p.days.includes(di);
+      c.onchange = () => { p.days = c.checked ? [...p.days, di].sort() : p.days.filter((x) => x !== di); save({ profiles: S.profiles }, "Schedule saved", true); };
+      l.append(c, d.slice(0, 2));
+      days.append(l);
+    });
+    const time = (key) => {
+      const t = el("input");
+      t.type = "time"; t.value = p[key];
+      t.onchange = () => { p[key] = t.value || p[key]; save({ profiles: S.profiles }, "Schedule saved", true); };
+      return t;
+    };
+    row.append(el("strong", "", p.name), days, time("from"), el("span", "", "to"), time("to"),
+      btn("Delete", async () => {
+        if (!confirm(`Delete the profile “${p.name}”?`)) return;
+        if (S.activeProfile === p.name) switchProfile(S, "");
+        S.profiles.splice(i, 1);
+        await save({}, "Profile deleted", true);
+        fillForm();
+      }, "del"));
+    return row;
+  }));
+}
+$("activeProfile").onchange = (e) => useProfile(e.target.value);
+$("profileAuto").onchange = async (e) => {
+  S.profileAuto = e.target.checked;
+  applyProfileSchedule(S);
+  await save({}, e.target.checked ? "Switching by schedule" : "Manual profile switching", true);
+  fillForm();
+};
+$("profileForm").onsubmit = (e) => {
+  e.preventDefault();
+  const name = $("pName").value.trim();
+  if (!name || S.profiles.some((p) => p.name === name)) return toast("Pick a new, unique name");
+  S.profiles.push({ name, days: [1, 2, 3, 4, 5], from: "09:00", to: "18:00" });
+  e.target.reset();
+  save({ profiles: S.profiles }, `Profile “${name}” added — it starts as a copy of your current setup`, true).then(renderProfiles);
+};
 $("clock24").onchange = (e) => save({ clock24: e.target.checked });
 $("shortcuts").onchange = (e) => save({ shortcuts: e.target.checked });
 
@@ -228,7 +404,13 @@ function fillForm() {
   $("layout").value = S.layout; $("accent").value = S.accent; $("cardSize").value = S.cardSize;
   $("cardStyle").value = S.cardStyle; $("animations").checked = S.animations; $("userName").value = S.userName;
   $("zones").value = S.zones.join(", ");
-  renderGroups(); renderPreview();
+  $("dockLocked").checked = S.dockLocked; $("dockVisible").checked = S.dockVisible;
+  $("rssUrl").value = S.rssUrl; $("cryptoCoins").value = S.cryptoCoins.join(", ");
+  $("cryptoCurrency").value = S.cryptoCurrency; $("githubUser").value = S.githubUser;
+  $("showFocus").checked = S.showFocus; $("pomoWork").value = S.pomoWork; $("pomoBreak").value = S.pomoBreak;
+  $("blockDuringFocus").checked = S.blockDuringFocus; $("blockSites").value = S.blockSites.join("\n");
+  $("suggest").checked = S.suggest;
+  renderGroups(); renderDock(); renderProfiles(); renderPreview(); showFocusStats();
 }
 
 // ---- Navigation & live preview ----

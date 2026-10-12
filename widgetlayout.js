@@ -9,21 +9,27 @@ const WIDGET_FONTS = {
   condensed: ["Condensed", 'Bahnschrift, "Arial Narrow", sans-serif'],
   hand: ["Handwritten", '"Segoe Print", "Comic Sans MS", cursive']
 };
-const WIDGET_HEIGHT = { todo: 260, notes: 240, pomodoro: 210, quote: 180, calendar: 310, worldclock: 190 }; // default px
+const WIDGET_HEIGHT = { todo: 260, notes: 240, pomodoro: 230, quote: 180, calendar: 310, worldclock: 190, rss: 300, countdown: 210, habits: 230, crypto: 190, github: 280 }; // default px
 const MIN_W = 170, MIN_H = 80, GRID = 8;
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 const layoutOf = (id) => (S.widgetLayout[id] ??= {});
 const widgetStyleOf = (id) => ({ ...S.widgetStyle, ...S.widgetLayout[id]?.style });
 const isEditing = () => document.body.classList.contains("editing");
 
-// Unsaved widgets stack down the right edge, wrapping into more columns toward the left
+// Unsaved widgets stack in columns beside the content: right edge first, then the left edge
+// (sidebar layout keeps the left side free for its content), then further columns inward
 function defaultRects(ids) {
   const W = innerWidth, H = innerHeight, colW = 290, gap = 14, top = 76, out = {};
-  let x = W - colW - 20, y = top;
+  const sides = S.layout === "sidebar" ? ["right"] : ["right", "left"];
+  const colX = (c) => {
+    const k = Math.floor(c / sides.length);
+    return sides[c % sides.length] === "right" ? W - 20 - colW - k * (colW + gap) : 20 + k * (colW + gap);
+  };
+  let col = 0, y = top;
   for (const id of ids) {
     const h = WIDGET_HEIGHT[id] || 220;
-    if (y + h > H - 16 && y > top) { y = top; x -= colW + gap; }
-    out[id] = { x: (x / W) * 100, y: (y / H) * 100, w: (colW / W) * 100, h: (h / H) * 100 };
+    if (y + h > H - 16 && y > top) { y = top; col++; }
+    out[id] = { x: (colX(col) / W) * 100, y: (y / H) * 100, w: (colW / W) * 100, h: (h / H) * 100 };
     y += h + gap;
   }
   return out;

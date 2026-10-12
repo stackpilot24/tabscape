@@ -1,4 +1,5 @@
 // Shared defaults, versioned settings storage (chrome.storage.sync) and IndexedDB helpers.
+// Loaded after apps.js (DEFAULT_DOCK) on every page and in the background service worker.
 // Bump SCHEMA_VERSION and add a MIGRATIONS entry whenever the settings shape changes.
 const SCHEMA_VERSION = 2;
 const DEFAULTS = {
@@ -28,7 +29,8 @@ const DEFAULTS = {
   cardStyle: "glass", // glass | solid | outline
   animations: true,
   userName: "",
-  widgets: { weather: true, todo: false, notes: false, pomodoro: false, quote: false, calendar: false, worldclock: false },
+  widgets: { weather: true, todo: false, notes: false, pomodoro: false, quote: false, calendar: false, worldclock: false,
+             rss: false, countdown: false, habits: false, crypto: false, github: false },
   zones: ["America/New_York", "Europe/London", "Asia/Tokyo"],
   // Global widget look; each widget may override it in widgetLayout[id].style
   widgetStyle: { bg: 25, tint: "dark", blur: 16, opacity: 100, font: "system", size: 100, color: "#ffffff", radius: 18, border: true },
@@ -36,7 +38,27 @@ const DEFAULTS = {
   weatherCity: "", // empty = detect current location
   tempUnit: "celsius",
   todos: [],
-  notes: ""
+  notes: "",
+  onboarded: false, // false shows the welcome screen once
+  dock: DEFAULT_DOCK,
+  dockLocked: true, // locked docks can't be edited until unlocked in settings
+  dockVisible: true,
+  suggest: false, // search suggestions (asks for permission to the suggestion host)
+  showFocus: true,
+  focus: { text: "", date: "", done: false }, // "today's main focus"
+  pomoWork: 25, // minutes
+  pomoBreak: 5,
+  blockDuringFocus: false,
+  blockSites: [], // hostnames blocked while a focus session runs
+  rssUrl: "",
+  countdowns: [], // [{ name, date: "YYYY-MM-DD" }]
+  habits: [], // [{ name, days: { "YYYY-MM-DD": true } }]
+  cryptoCoins: ["bitcoin", "ethereum"],
+  cryptoCurrency: "usd",
+  githubUser: "",
+  profiles: [], // [{ name, days: [0-6], from: "HH:MM", to: "HH:MM", data: {...PROFILE_KEYS} }]
+  activeProfile: "", // "" = the main setup
+  profileAuto: true // switch by schedule
 };
 const ENGINES = {
   google: "https://www.google.com/search?q=",
@@ -59,6 +81,7 @@ function normalize(raw) {
   const s = { ...structuredClone(DEFAULTS), ...migrate(raw) };
   s.widgets = { ...DEFAULTS.widgets, ...raw.widgets };
   s.widgetStyle = { ...DEFAULTS.widgetStyle, ...raw.widgetStyle };
+  s.focus = { ...DEFAULTS.focus, ...raw.focus };
   return s;
 }
 
@@ -117,6 +140,80 @@ function onSettingsChanged(cb) {
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if ((area === "sync" && changes.cfg_count) || (area === "local" && changes.cfg)) cb(await getSettings());
   });
+}
+
+const getJSON = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); return r.json(); };
+
+// Local calendar date as YYYY-MM-DD
+const isoDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// Optional permissions are requested on demand (must run inside a click handler)
+const hasOrigins = (origins) => chrome.permissions.contains({ origins });
+const requestOrigins = (origins) => chrome.permissions.request({ origins });
+
+// ---- Themes: presets and shareable codes ----
+const THEME_KEYS = ["wpMode", "liveScene", "liveQuality", "gradient", "dim", "blur", "layout", "accent", "cardSize", "cardStyle", "animations", "widgetStyle"];
+const THEME_PRESETS = {
+  "Spider Night": { wpMode: "live", liveScene: "webcity", accent: "#e23636", layout: "centered", cardStyle: "glass", dim: 10 },
+  "Neon Drive": { wpMode: "live", liveScene: "synthwave", accent: "#ff4fb0", layout: "centered", cardStyle: "solid", dim: 5 },
+  "Northern Calm": { wpMode: "live", liveScene: "aurora", accent: "#34d399", layout: "sidebar", cardStyle: "glass", dim: 0 },
+  "Deep Space": { wpMode: "live", liveScene: "galaxy", accent: "#7aa2ff", layout: "minimal", cardStyle: "outline", dim: 10 },
+  "Festival": { wpMode: "live", liveScene: "festival", accent: "#ffb020", layout: "centered", cardStyle: "glass", dim: 5 },
+  "Snow Day": { wpMode: "live", liveScene: "snow", accent: "#9ad8ff", layout: "centered", cardStyle: "glass", dim: 5 },
+  "Monsoon": { wpMode: "live", liveScene: "rain", accent: "#5eead4", layout: "sidebar", cardStyle: "glass", dim: 10 },
+  "Daily Photo": { wpMode: "daily", accent: "#facc15", layout: "centered", cardStyle: "glass", dim: 25 }
+};
+const encodeTheme = (s) => "CTAB1:" + btoa(unescape(encodeURIComponent(JSON.stringify(Object.fromEntries(THEME_KEYS.map((k) => [k, s[k]]))))));
+function decodeTheme(code) {
+  const m = /^CTAB1:([A-Za-z0-9+/=]+)$/.exec(code.trim());
+  if (!m) throw new Error("not a theme code");
+  const t = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+  if (t.wpMode === "file" || t.wpMode === "url") t.wpMode = "live"; // uploads aren't shareable
+  return Object.fromEntries(THEME_KEYS.filter((k) => k in t).map((k) => [k, t[k]]));
+}
+
+// ---- Focus blocking: site list helpers ----
+const siteOrigins = (hosts) => hosts.flatMap((h) => [`*://${h}/*`, `*://*.${h}/*`]);
+const parseSites = (text) => [...new Set(text.split(/[\s,]+/).map((h) => h.trim().toLowerCase()
+  .replace(/^[a-z]+:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "")).filter((h) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(h)))];
+
+
+// ---- Pomodoro: state lives in chrome.storage.local so every tab and the background agree ----
+const pomoLength = (s, mode) => (mode === "work" ? s.pomoWork : s.pomoBreak) * 60e3;
+
+// Ends the session that was due at `endsAt` exactly once, whoever notices first (a tab or the
+// background alarm), logging finished focus sessions per day for the stats line
+async function finishPomo(s, endsAt) {
+  const { pomo, focusLog = {} } = await chrome.storage.local.get(["pomo", "focusLog"]);
+  if (!pomo || pomo.endsAt !== endsAt) return;
+  if (pomo.mode === "work") {
+    const day = (focusLog[isoDate()] ??= { sessions: 0, minutes: 0 });
+    day.sessions++;
+    day.minutes += Math.round(pomoLength(s, "work") / 60e3);
+    for (const k of Object.keys(focusLog).sort().slice(0, -60)) delete focusLog[k]; // keep ~2 months
+  }
+  const next = pomo.mode === "work" ? "break" : "work";
+  await chrome.storage.local.set({ focusLog, pomo: { mode: next, endsAt: null, remaining: pomoLength(s, next) } });
+}
+
+// ---- Import links from the browser (bookmarks bar / most visited) ----
+async function importBrowserLinks(kind) {
+  const perm = kind === "bookmarks" ? "bookmarks" : "topSites";
+  if (!(await chrome.permissions.request({ permissions: [perm] }))) throw new Error("permission denied");
+  const link = (title, url) => ({ title: (title || new URL(url).hostname).slice(0, 40), url, icon: "" });
+  if (kind === "topSites") {
+    const sites = await chrome.topSites.get();
+    return [{ name: "Most visited", links: sites.slice(0, 12).map((t) => link(t.title, t.url)) }];
+  }
+  const [root] = await chrome.bookmarks.getTree();
+  const bar = root.children[0]; // the bookmarks bar
+  const loose = bar.children.filter((n) => n.url && /^https?:/.test(n.url));
+  const groups = loose.length ? [{ name: "Bookmarks bar", links: loose.slice(0, 30).map((n) => link(n.title, n.url)) }] : [];
+  for (const folder of bar.children.filter((n) => n.children)) {
+    const links = folder.children.filter((n) => n.url && /^https?:/.test(n.url)).slice(0, 30).map((n) => link(n.title, n.url));
+    if (links.length) groups.push({ name: folder.title || "Folder", links });
+  }
+  return groups;
 }
 
 const faviconFor = (url) => `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(url)}`;

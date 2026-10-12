@@ -2,22 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Customizable TAB — Admin</title>
+  <title>Customizable TAB — Settings</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <nav id="topbar">
     <button id="back" type="button">← Back to dashboard</button>
+    <div class="jump">
+      <a href="#links">Links</a><a href="#dock">Dock</a><a href="#wallpaper">Wallpaper</a><a href="#theme">Theme</a>
+      <a href="#widgets">Widgets</a><a href="#focus">Focus</a><a href="#profiles">Profiles</a><a href="#backup">Backup</a>
+    </div>
     <button id="togglePreview" type="button">Show live preview</button>
   </nav>
   <aside id="livePreview" hidden>
     <div class="lp-head">Live preview <small>— changes apply instantly</small></div>
     <div class="lp-frame"><iframe id="lpFrame" title="Dashboard preview"></iframe></div>
   </aside>
-  <h1>Customizable TAB <small>Admin Panel</small> <span id="storage"></span></h1>
+  <h1>Customizable TAB <small>Settings</small> <span id="storage"></span></h1>
+  <p id="profileBanner" class="banner" hidden></p>
 
-  <section>
+  <section id="links">
     <h2>Links</h2>
+    <div class="row">
+      <button id="importBookmarks" type="button" class="soft">⭐ Import bookmarks bar</button>
+      <button id="importTop" type="button" class="soft">🔥 Import most visited</button>
+      <span class="note">Chrome asks for permission the first time.</span>
+    </div>
     <form id="addForm">
       <input id="lTitle" placeholder="Label / Title" required>
       <input id="lUrl" placeholder="Direct URL (https://...)" required>
@@ -32,7 +42,24 @@
     </form>
   </section>
 
-  <section>
+  <section id="dock">
+    <h2>App Dock</h2>
+    <div class="row">
+      <label><input id="dockVisible" type="checkbox"> Show the dock</label>
+      <label><input id="dockLocked" type="checkbox"> 🔒 Lock the dock (prevents changes)</label>
+    </div>
+    <ul id="dockList" class="links"></ul>
+    <form id="dockForm" class="row">
+      <select id="dockCatalog" title="Popular apps"><option value="">Add a popular app…</option></select>
+      <span class="note">or</span>
+      <input id="dName" placeholder="Name" required>
+      <input id="dUrl" placeholder="https://…" required>
+      <input id="dIcon" placeholder="Emoji or icon URL (optional)">
+      <button>Add</button>
+    </form>
+  </section>
+
+  <section id="wallpaper">
     <h2>Wallpaper &amp; Display</h2>
     <div class="row">
       <label><input type="radio" name="wpMode" value="live"> Live 3D (animated)</label>
@@ -54,10 +81,16 @@
     <div id="preview"><div id="previewDim"></div><span>Preview</span></div>
   </section>
 
-  <section>
+  <section id="theme">
     <h2>Layout &amp; Theme</h2>
+    <div id="presets" class="row"></div>
     <div class="row">
-      <label>Layout <select id="layout"><option value="centered">Centered</option><option value="sidebar">Sidebar (widgets on the right)</option><option value="minimal">Minimal (big clock + dock)</option></select></label>
+      <input id="themeCode" placeholder="Paste a theme code (CTAB1:…)">
+      <button id="applyCode" type="button">Apply code</button>
+      <button id="copyCode" type="button" class="soft">Copy my theme code</button>
+    </div>
+    <div class="row">
+      <label>Layout <select id="layout"><option value="centered">Centered</option><option value="sidebar">Sidebar (content left)</option><option value="minimal">Minimal (big clock + dock)</option></select></label>
       <label>Accent <input id="accent" type="color"></label>
     </div>
     <div class="row">
@@ -65,10 +98,11 @@
       <label>Card style <select id="cardStyle"><option value="glass">Glass</option><option value="solid">Solid</option><option value="outline">Outline</option></select></label>
       <label><input id="animations" type="checkbox"> Animations (entrance, 3D tilt, parallax, live scenes)</label>
     </div>
-    <label>Your name (for the greeting) <input id="userName" placeholder="e.g. Samyak"></label>
+    <label>Your name (for the greeting) <input id="userName" placeholder="e.g. Alex"></label>
+    <button id="replayWelcome" type="button" class="soft">Show the welcome tour again</button>
   </section>
 
-  <section>
+  <section id="widgets">
     <h2>Widgets</h2>
     <div class="row">
       <label><input type="checkbox" data-widget="weather"> Weather</label>
@@ -78,24 +112,69 @@
       <label><input type="checkbox" data-widget="quote"> Quote of the day</label>
       <label><input type="checkbox" data-widget="calendar"> Calendar</label>
       <label><input type="checkbox" data-widget="worldclock"> World clock</label>
-    </div>
-    <div class="row">
-      <input id="weatherCity" placeholder="City — leave blank to use your current location">
-      <select id="tempUnit"><option value="celsius">°C</option><option value="fahrenheit">°F</option></select>
+      <label><input type="checkbox" data-widget="rss"> News (RSS)</label>
+      <label><input type="checkbox" data-widget="countdown"> Countdown</label>
+      <label><input type="checkbox" data-widget="habits"> Habit tracker</label>
+      <label><input type="checkbox" data-widget="crypto"> Crypto prices</label>
+      <label><input type="checkbox" data-widget="github"> GitHub activity</label>
     </div>
     <p class="note">To move, resize or restyle widgets, press <b>E</b> on the dashboard (or click the grid button in its header).</p>
+    <div class="row">
+      <input id="weatherCity" placeholder="Weather city — leave blank to use your current location">
+      <select id="tempUnit"><option value="celsius">°C</option><option value="fahrenheit">°F</option></select>
+    </div>
     <label>World clock zones <input id="zones" placeholder="America/New_York, Europe/London, Asia/Kolkata"></label>
+    <div class="row">
+      <label class="grow">News feed <input id="rssUrl" placeholder="https://feeds.bbci.co.uk/news/rss.xml"></label>
+      <button id="rssSave" type="button">Save &amp; allow</button>
+    </div>
+    <div class="row">
+      <label class="grow">Crypto coins <input id="cryptoCoins" placeholder="bitcoin, ethereum, solana"></label>
+      <label>Currency <select id="cryptoCurrency"><option>usd</option><option>inr</option><option>eur</option><option>gbp</option><option>jpy</option></select></label>
+    </div>
+    <label>GitHub username <input id="githubUser" placeholder="octocat"></label>
   </section>
 
-  <section>
+  <section id="focus">
+    <h2>Focus</h2>
+    <label><input id="showFocus" type="checkbox"> Ask for “today's main focus” under the greeting</label>
+    <div class="row">
+      <label>Focus session <input id="pomoWork" type="number" min="1" max="180" class="num"> min</label>
+      <label>Break <input id="pomoBreak" type="number" min="1" max="60" class="num"> min</label>
+    </div>
+    <label><input id="blockDuringFocus" type="checkbox"> Block distracting sites while a focus session is running</label>
+    <textarea id="blockSites" rows="3" placeholder="youtube.com&#10;instagram.com&#10;x.com"></textarea>
+    <div class="row">
+      <button id="blockSave" type="button">Save &amp; allow blocking</button>
+      <span class="note">One site per line. Chrome asks once for access to exactly these sites.</span>
+    </div>
+    <p id="focusStats" class="note"></p>
+  </section>
+
+  <section id="search">
     <h2>Search, Clock &amp; Shortcuts</h2>
     <label>Default engine: <select id="engine"></select></label>
+    <label><input id="suggest" type="checkbox"> Search suggestions while typing (sends what you type to your engine's suggestion service)</label>
     <label><input id="clock24" type="checkbox"> 24-hour clock</label>
-    <label><input id="shortcuts" type="checkbox"> Keyboard shortcuts (1–9 open links, / search, W next wallpaper, Z zen, C customize)</label>
+    <label><input id="shortcuts" type="checkbox"> Keyboard shortcuts (1–9 open links, / search, W wallpaper, Z zen, C customize, E arrange widgets)</label>
     <p class="note">Ctrl+K opens the command palette on the new tab page.</p>
   </section>
 
-  <section>
+  <section id="profiles">
+    <h2>Profiles</h2>
+    <p class="note">Each profile keeps its own links, dock, widgets, layout and background — e.g. a Work profile on weekdays 9–18.</p>
+    <label><input id="profileAuto" type="checkbox"> Switch profiles automatically by schedule</label>
+    <div class="row">
+      <label>Active profile <select id="activeProfile"></select></label>
+    </div>
+    <div id="profileList"></div>
+    <form id="profileForm" class="row">
+      <input id="pName" placeholder="New profile name (e.g. Work)" required maxlength="24">
+      <button>Add profile</button>
+    </form>
+  </section>
+
+  <section id="backup">
     <h2>Backup</h2>
     <div class="row">
       <button id="export">Export .json</button>
@@ -104,7 +183,9 @@
   </section>
 
   <div id="toast"></div>
+  <script src="apps.js"></script>
   <script src="shared.js"></script>
+  <script src="profiles.js"></script>
   <script src="live.js"></script>
   <script src="options.js"></script>
 </body>

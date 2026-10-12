@@ -6,8 +6,14 @@ const persist = () => saveSettings(S);
 // Apply a settings change made on this page and re-render everything it affects
 const set = (patch) => { Object.assign(S, patch); persist(); renderAll(); if (!$("drawer").hidden) renderDrawer(); };
 
+let lastMinute = -1, lastDay = "";
 function tick() {
   const now = new Date();
+  if (now.getMinutes() !== lastMinute) {
+    lastMinute = now.getMinutes();
+    if (applyProfileSchedule(S)) { persist(); renderAll(); return; }
+    if (isoDate(now) !== lastDay) { lastDay = isoDate(now); renderFocus(); }
+  }
   $("clock").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !S.clock24 });
   $("date").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const hr = now.getHours();
@@ -61,6 +67,83 @@ $("grid").addEventListener("pointermove", (e) => {
 $("grid").addEventListener("pointerout", (e) => {
   const c = e.target.closest(".card");
   if (c && !c.contains(e.relatedTarget)) for (const p of ["--rx", "--ry"]) c.style.removeProperty(p);
+});
+
+// ---- App dock ----
+function renderDock() {
+  const d = $("apps");
+  d.hidden = !S.dockVisible || !S.dock.length;
+  d.replaceChildren(...S.dock.map(appButton));
+}
+
+// ---- Today's main focus ----
+function renderFocus() {
+  const box = $("focus"), today = isoDate();
+  box.replaceChildren();
+  if (!S.showFocus) return;
+  if (S.focus.date !== today || !S.focus.text) {
+    const i = el("input");
+    i.id = "focusInput"; i.placeholder = "What's your main focus today?"; i.maxLength = 120;
+    i.onkeydown = (e) => { if (e.key === "Enter" && i.value.trim()) set({ focus: { text: i.value.trim(), date: today, done: false } }); };
+    box.append(i);
+    return;
+  }
+  const cb = el("input"), label = el("label", S.focus.done ? "done" : "");
+  cb.type = "checkbox"; cb.checked = S.focus.done;
+  cb.onchange = () => set({ focus: { ...S.focus, done: cb.checked } });
+  label.append(cb, el("span", "", S.focus.text));
+  box.append(el("small", "", "TODAY"), label, iconBtn("✕", "Clear today's focus", () => set({ focus: { text: "", date: "", done: false } })));
+}
+
+// ---- Search suggestions: your links first, then the engine's suggestions (optional permission) ----
+const SUGGEST = {
+  google: { origin: "https://suggestqueries.google.com/*", url: (q) => `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(q)}` },
+  duckduckgo: { origin: "https://duckduckgo.com/*", url: (q) => `https://duckduckgo.com/ac/?type=list&q=${encodeURIComponent(q)}` }
+};
+const suggestSource = (engine) => SUGGEST[engine === "duckduckgo" ? "duckduckgo" : "google"];
+let sItems = [], sSel = -1, sSeq = 0, sTimer;
+
+async function updateSuggest() {
+  const q = $("q").value.trim(), seq = ++sSeq;
+  if (!q) return hideSuggest();
+  const links = flat.map((l) => ({ l, s: fuzzy(q.toLowerCase(), l.title + " " + l.url) })).filter((x) => x.s >= 0)
+    .sort((a, b) => b.s - a.s).slice(0, 3).map(({ l }) => ({ text: l.title, hint: l.url.replace(/^https?:\/\//, ""), link: l }));
+  let words = [];
+  if (S.suggest) {
+    try { words = ((await getJSON(suggestSource($("engine").value).url(q)))[1] || []).slice(0, 6).map((text) => ({ text })); }
+    catch { /* no permission or offline: links only */ }
+  }
+  if (seq !== sSeq) return; // a newer keystroke already answered
+  sItems = [...links, ...words];
+  sSel = -1;
+  drawSuggest();
+}
+
+function drawSuggest() {
+  const ul = $("suggest");
+  ul.hidden = !sItems.length;
+  ul.replaceChildren(...sItems.map((it, i) => {
+    const li = el("li", i === sSel ? "on" : "");
+    li.setAttribute("role", "option");
+    li.append(it.link ? linkIcon(it.link, "ico") : el("span", "ico", "🔎"), el("span", "", it.text));
+    if (it.hint) li.append(el("small", "", it.hint));
+    li.onmousedown = (e) => { e.preventDefault(); pickSuggest(it); };
+    return li;
+  }));
+}
+const hideSuggest = () => { sItems = []; $("suggest").hidden = true; };
+const pickSuggest = (it) => { hideSuggest(); if (it.link) location.href = it.link.url; else goSearch(it.text); };
+
+$("q").addEventListener("input", () => { clearTimeout(sTimer); sTimer = setTimeout(updateSuggest, 120); });
+$("q").addEventListener("blur", () => setTimeout(hideSuggest, 100));
+$("q").addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && sItems.length) { e.stopPropagation(); hideSuggest(); return; }
+  if (!sItems.length || !["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) return;
+  if (e.key === "Enter") { if (sSel >= 0) { e.preventDefault(); pickSuggest(sItems[sSel]); } return; }
+  e.preventDefault();
+  const n = sItems.length + 1; // the extra slot (-1) is "what you typed"
+  sSel = (((sSel + 1 + (e.key === "ArrowDown" ? 1 : -1)) % n) + n) % n - 1;
+  drawSuggest();
 });
 
 // ---- Keyboard ----
@@ -203,7 +286,6 @@ function setupSearch() {
 // ---- Weather (Open-Meteo, no API key; cached for 30 minutes) ----
 // With no city set, the location comes from the browser (geolocation permission), falling back to IP lookup.
 const wxIcon = (c) => c === 0 ? "☀️" : c <= 3 ? "⛅" : c <= 48 ? "🌫️" : c <= 67 ? "🌧️" : c <= 77 ? "🌨️" : c <= 82 ? "🌦️" : c <= 86 ? "🌨️" : "⛈️";
-const getJSON = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); return r.json(); };
 
 async function locate() {
   try {
@@ -247,187 +329,6 @@ async function renderWeather() {
   w.title = c.hi != null ? `Today: high ${c.hi}°${u}, low ${c.lo}°${u}` : "";
 }
 
-// ---- Widgets ----
-const widgetBox = (title, cls = "", action) => {
-  const w = el("div", "widget " + cls), h = el("h4", "", title);
-  if (action) h.append(action);
-  w.append(h);
-  return w;
-};
-const iconBtn = (text, title, onClick) => { const b = el("button", "", text); b.title = title; b.onclick = onClick; return b; };
-
-function todoWidget() {
-  const w = widgetBox("To-do");
-  const list = el("ul", "todos");
-  S.todos.forEach((t, i) => {
-    const li = el("li", t.done ? "done" : "");
-    const cb = el("input");
-    cb.type = "checkbox"; cb.checked = t.done;
-    cb.onchange = () => { t.done = cb.checked; persist(); renderWidgets(); };
-    const x = el("button", "", "✕");
-    x.onclick = () => { S.todos.splice(i, 1); persist(); renderWidgets(); };
-    li.append(cb, el("span", "", t.text), x);
-    list.append(li);
-  });
-  const add = el("input");
-  add.id = "todoAdd"; add.placeholder = "Add a task and press Enter";
-  add.onkeydown = (e) => {
-    if (e.key !== "Enter" || !add.value.trim()) return;
-    S.todos.push({ text: add.value.trim(), done: false });
-    persist(); renderWidgets(); $("todoAdd").focus();
-  };
-  w.append(list, add);
-  return w;
-}
-
-function notesWidget() {
-  const w = widgetBox("Notes");
-  const ta = el("textarea");
-  ta.id = "notes"; ta.value = S.notes; ta.placeholder = "Quick notes…";
-  let t;
-  ta.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.notes = ta.value; persist(); }, 800); };
-  w.append(ta);
-  return w;
-}
-
-// Pomodoro state lives in local storage so it's shared by all open tabs
-const POMO = { work: 25 * 60e3, break: 5 * 60e3 };
-let pomo = { mode: "work", endsAt: null, remaining: POMO.work };
-const pomoLeft = () => (pomo.endsAt ? Math.max(0, pomo.endsAt - Date.now()) : pomo.remaining);
-const setPomo = (p) => { pomo = p; chrome.storage.local.set({ pomo }); updatePomo(); };
-
-function pomoWidget() {
-  const w = widgetBox("Pomodoro", "pomo");
-  const row = el("div", "row");
-  const start = el("button", "", "Start");
-  start.id = "pomoBtn";
-  start.onclick = () => setPomo(pomo.endsAt
-    ? { ...pomo, endsAt: null, remaining: pomoLeft() }
-    : { ...pomo, endsAt: Date.now() + pomo.remaining });
-  const reset = el("button", "", "Reset");
-  reset.onclick = () => setPomo({ mode: "work", endsAt: null, remaining: POMO.work });
-  row.append(start, reset);
-  const time = el("div", "pomo-time"); time.id = "pomoTime";
-  const label = el("div", "pomo-label"); label.id = "pomoLabel";
-  const bar = el("div", "pomo-bar"), fill = el("i");
-  fill.id = "pomoBar"; bar.append(fill);
-  w.append(time, label, bar, row);
-  return w;
-}
-
-function updatePomo() {
-  if (!$("pomoTime")) return;
-  const left = pomoLeft();
-  if (pomo.endsAt && left === 0) {
-    const next = pomo.mode === "work" ? "break" : "work";
-    document.title = next === "break" ? "⏰ Break time!" : "⏰ Back to work!";
-    setPomo({ mode: next, endsAt: null, remaining: POMO[next] });
-    return;
-  }
-  const s = Math.ceil(left / 1000);
-  $("pomoTime").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  $("pomoLabel").textContent = pomo.mode === "work" ? "Focus" : "Break";
-  $("pomoBtn").textContent = pomo.endsAt ? "Pause" : "Start";
-  $("pomoBar").style.width = `${(1 - left / POMO[pomo.mode]) * 100}%`;
-}
-
-const QUOTES = [
-  ["The best way out is always through.", "Robert Frost"],
-  ["Well done is better than well said.", "Benjamin Franklin"],
-  ["Programs must be written for people to read, and only incidentally for machines to execute.", "Harold Abelson"],
-  ["Simple things should be simple, complex things should be possible.", "Alan Kay"],
-  ["Premature optimization is the root of all evil.", "Donald Knuth"],
-  ["Make it work, make it right, make it fast.", "Kent Beck"],
-  ["Talk is cheap. Show me the code.", "Linus Torvalds"],
-  ["We are what we repeatedly do. Excellence, then, is not an act, but a habit.", "Will Durant"],
-  ["Stay hungry. Stay foolish.", "Stewart Brand"],
-  ["Any sufficiently advanced technology is indistinguishable from magic.", "Arthur C. Clarke"],
-  ["The only way to do great work is to love what you do.", "Steve Jobs"],
-  ["Imagination is more important than knowledge.", "Albert Einstein"],
-  ["The future is already here — it's just not very evenly distributed.", "William Gibson"],
-  ["You miss 100% of the shots you don't take.", "Wayne Gretzky"],
-  ["Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away.", "Antoine de Saint-Exupéry"],
-  ["Do. Or do not. There is no try.", "Yoda"],
-  ["First, solve the problem. Then, write the code.", "John Johnson"],
-  ["It always seems impossible until it's done.", "Nelson Mandela"]
-];
-let quoteIdx = Math.floor(Date.now() / 864e5) % QUOTES.length; // changes once a day
-
-function quoteWidget() {
-  const w = widgetBox("Quote", "quote", iconBtn("↻", "Another quote", () => {
-    quoteIdx = (quoteIdx + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length;
-    renderWidgets();
-  }));
-  const [text, who] = QUOTES[quoteIdx];
-  w.append(el("blockquote", "", `“${text}”`), el("cite", "", "— " + who));
-  return w;
-}
-
-let calOffset = 0; // months from the current one
-function calendarWidget() {
-  const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() + calOffset, 1);
-  const title = first.toLocaleDateString([], { month: "long", year: "numeric" });
-  const nav = el("span");
-  nav.append(
-    iconBtn("‹", "Previous month", () => { calOffset--; renderWidgets(); }),
-    iconBtn("•", "Today", () => { calOffset = 0; renderWidgets(); }),
-    iconBtn("›", "Next month", () => { calOffset++; renderWidgets(); }));
-  const w = widgetBox(title, "", nav);
-  const grid = el("div", "cal");
-  for (let d = 0; d < 7; d++) grid.append(el("b", "", new Date(2023, 0, 1 + d).toLocaleDateString([], { weekday: "narrow" }))); // Jan 1 2023 was a Sunday
-  const start = new Date(first); start.setDate(1 - first.getDay());
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(start); d.setDate(start.getDate() + i);
-    const today = d.toDateString() === now.toDateString();
-    grid.append(el("span", d.getMonth() !== first.getMonth() ? "out" : today ? "today" : "", d.getDate()));
-  }
-  w.append(grid);
-  return w;
-}
-
-function worldClockWidget() {
-  const w = widgetBox("World clock");
-  const list = el("div", "zones"); list.id = "zones";
-  w.append(list);
-  return w;
-}
-
-function updateZones() {
-  const list = $("zones");
-  if (!list) return;
-  const now = new Date(), here = now.toLocaleDateString("en-CA");
-  list.replaceChildren(...S.zones.map((tz) => {
-    const row = el("div"), name = el("span", "", tz.split("/").pop().replace(/_/g, " "));
-    try {
-      const time = now.toLocaleTimeString([], { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: !S.clock24 });
-      const day = now.toLocaleDateString("en-CA", { timeZone: tz });
-      if (day !== here) name.append(el("small", "", day > here ? "tomorrow" : "yesterday"));
-      row.append(name, el("strong", "", time));
-    } catch {
-      row.append(name, el("small", "", "unknown time zone"));
-    }
-    return row;
-  }));
-}
-
-const WIDGETS = {
-  todo: ["To-do", todoWidget], notes: ["Notes", notesWidget], pomodoro: ["Pomodoro", pomoWidget],
-  quote: ["Quote", quoteWidget], calendar: ["Calendar", calendarWidget], worldclock: ["World clock", worldClockWidget]
-};
-
-function renderWidgets() {
-  const ids = Object.keys(WIDGETS).filter((id) => S.widgets[id]), defs = defaultRects(ids);
-  $("widgets").replaceChildren(...ids.map((id, i) => {
-    const w = WIDGETS[id][1]();
-    w.dataset.id = id;
-    w.style.setProperty("--i", i + 4);
-    decorateWidget(w, id, layoutOf(id).rect || defs[id]);
-    return w;
-  }));
-  renderEditBar();
-  updatePomo(); updateZones();
-}
-
 // ---- Command palette ----
 let pItems = [], pSel = 0;
 
@@ -445,6 +346,13 @@ function paletteActions() {
   ];
   for (const [k, name] of Object.entries(LIVE_SCENES)) acts.push({ label: `Live wallpaper: ${name}`, icon: "🌌", run: () => set({ wpMode: "live", liveScene: k }) });
   for (const l of ["centered", "sidebar", "minimal"]) acts.push({ label: `Layout: ${l[0].toUpperCase() + l.slice(1)}`, icon: "▦", run: () => set({ layout: l }) });
+  for (const name of Object.keys(THEME_PRESETS)) acts.push({ label: `Theme: ${name}`, icon: "🎭", run: () => set(THEME_PRESETS[name]) });
+  for (const name of ["", ...S.profiles.map((p) => p.name)]) {
+    acts.push({ label: `Profile: ${name || "Main"}`, icon: "👤", run: () => { switchProfile(S, name); S.profileAuto = false; persist(); renderAll(); } });
+  }
+  acts.push({ label: "Edit app dock", icon: "⚓", run: () => (location.href = "options.html#dock") });
+  acts.push({ label: "Import bookmarks or most visited", icon: "⭳", run: () => (location.href = "options.html#links") });
+  acts.push({ label: "Show welcome tour", icon: "👋", run: showWelcome });
   return acts;
 }
 
@@ -570,11 +478,44 @@ function renderDrawer() {
   styleBtn.onclick = () => openWidgetPanel(null, styleBtn);
   widgetButtons.append(editBtn, styleBtn);
 
+  const presets = el("div", "presets");
+  for (const name of Object.keys(THEME_PRESETS)) {
+    const b = el("button", "", name);
+    b.onclick = () => set(THEME_PRESETS[name]);
+    presets.append(b);
+  }
+  const codeBox = el("div", "codebox"), codeIn = el("input");
+  codeIn.placeholder = "Paste a theme code (CTAB1:…)";
+  const apply = el("button", "", "Apply");
+  apply.onclick = () => {
+    try { set(decodeTheme(codeIn.value)); } catch { codeIn.value = ""; codeIn.placeholder = "That isn't a valid theme code"; }
+  };
+  const copy = el("button", "", "Copy my theme");
+  copy.onclick = async () => { await navigator.clipboard.writeText(encodeTheme(S)); copy.textContent = "Copied ✓"; };
+  codeBox.append(codeIn, apply, copy);
+
+  const profiles = [];
+  if (S.profiles.length) {
+    const row = el("div", "seg");
+    for (const name of ["", ...S.profiles.map((p) => p.name)]) {
+      const b = el("button", S.activeProfile === name ? "on" : "", name || "Main");
+      b.onclick = () => { switchProfile(S, name); S.profileAuto = false; persist(); renderAll(); renderDrawer(); };
+      row.append(b);
+    }
+    const auto = el("label", "toggle"), c = el("input");
+    c.type = "checkbox"; c.checked = S.profileAuto;
+    c.onchange = () => { S.profileAuto = c.checked; applyProfileSchedule(S); persist(); renderAll(); renderDrawer(); };
+    auto.append(el("span", "", "Switch by schedule"), c);
+    profiles.push(field("Profile", row, auto));
+  }
+
   const more = el("a", "more", "All settings →");
   more.href = "options.html";
 
   d.replaceChildren(
     head,
+    ...profiles,
+    field("Theme presets", presets, codeBox),
     field("Background", seg("wpMode", [["live", "Live 3D"], ["daily", "Daily photo"], ["gradient", "Gradient"]])),
     field("3D scene", scenes),
     field("Scene quality", seg("liveQuality", [["low", "Battery"], ["medium", "Balanced"], ["high", "Ultra"]])),
@@ -597,14 +538,16 @@ function toggleDrawer(open = $("drawer").hidden) {
 
 // ---- Boot ----
 function renderAll() {
-  applyTheme(); renderLinks(); renderWidgets(); renderWeather(); applyWallpaper(); tick();
+  applyTheme(); renderLinks(); renderDock(); renderFocus(); renderWidgets(); renderWeather(); applyWallpaper(); tick();
   $("engine").value = S.engine;
 }
 
 (async () => {
   S = await getSettings();
-  pomo = (await chrome.storage.local.get("pomo")).pomo || pomo;
+  if (applyProfileSchedule(S)) persist();
+  await loadPomo();
   setupSearch(); renderAll(); scheduleMidnight();
+  if (!S.onboarded) showWelcome();
   setInterval(tick, 1000);
   setTimeout(() => document.body.classList.remove("intro"), 1800);
   $("clock").onclick = () => set({ clock24: !S.clock24 });
@@ -618,7 +561,7 @@ function renderAll() {
   // Live-update when settings change in another tab, the admin panel, or another device
   onSettingsChanged((s) => {
     if (JSON.stringify(s) === JSON.stringify(S)) return;
-    const typing = document.activeElement?.id === "notes";
+    const typing = ["notes", "focusInput"].includes(document.activeElement?.id);
     S = s;
     if (typing) { applyTheme(); renderLinks(); renderWeather(); applyWallpaper(); } else renderAll();
     if (!$("drawer").hidden) renderDrawer();
@@ -626,6 +569,7 @@ function renderAll() {
   chrome.storage.onChanged.addListener((c, area) => {
     if (area !== "local") return;
     if (c.pomo) { pomo = c.pomo.newValue; updatePomo(); }
+    if (c.focusLog) { focusToday = c.focusLog.newValue?.[isoDate()] || { sessions: 0, minutes: 0 }; updatePomo(); }
     if (c.wallpaperIdx && S.wpMode === "daily") applyWallpaper();
   });
 })();
