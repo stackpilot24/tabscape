@@ -43,4 +43,4 @@ Searches you submit go to the search engine you chose, just like searching from 
 
 ## Contact
 
-Questions: [samyakjain1524@gmail.com]
+Questions: samyakjain1524@gmail.com
