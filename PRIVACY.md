@@ -20,7 +20,7 @@ The extension talks directly to these services from your browser, and only when 
 
 | Feature | Service | What is sent |
 |---|---|---|
-| Daily photo wallpaper (the source you pick) | Bing (`bing.com`), NASA APOD (`api.nasa.gov`), Wikimedia (`api.wikimedia.org`, `upload.wikimedia.org`), Unsplash (`api.unsplash.com`, `images.unsplash.com`) or Lorem Picsum (`picsum.photos`) | A request for recent pictures with your chosen topic, plus your own NASA or Unsplash key if you entered one. For Unsplash, a "photo used" notice is sent once per photo, as Unsplash requires. |
+| Daily photo wallpaper (the source you pick) | Bing (`bing.com`), NASA APOD (`api.nasa.gov`), Wikimedia (`api.wikimedia.org`, `upload.wikimedia.org`, `thumb.wikimedia.org`), Unsplash (`api.unsplash.com`, `images.unsplash.com`) or Lorem Picsum (`picsum.photos`) | A request for recent pictures with your chosen topic, plus your own NASA or Unsplash key if you entered one. For Unsplash, a "photo used" notice is sent once per photo, as Unsplash requires. |
 | Weather | Open-Meteo (`open-meteo.com`) | Your city name, or approximate coordinates |
 | Weather: automatic location | Browser geolocation, then BigDataCloud (`bigdatacloud.net`) to name the city | Coordinates, rounded by the browser |
 | Weather: fallback location | ipapi (`ipapi.co`) | Your IP address (inherent in any web request) |
@@ -43,4 +43,4 @@ Searches you submit go to the search engine you chose, just like searching from 
 
 ## Contact
 
-Questions: [your contact email]
+Questions: [samyakjain1524@gmail.com]

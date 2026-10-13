@@ -210,7 +210,7 @@ const DAILY_SOURCES = {
         return getJSON(`https://api.wikimedia.org/feed/v1/wikipedia/en/featured/${d}`);
       }));
       return days.filter((r) => r.status === "fulfilled" && r.value.image).map(({ value: { image } }) => ({
-        url: image.image?.source || image.thumbnail.source,
+        url: wikiPhotoUrl(image),
         title: `${(image.description?.text || image.title || "").replace(/<[^>]+>/g, "").slice(0, 140)}${image.artist?.text ? " — " + image.artist.text.replace(/<[^>]+>/g, "") : ""}`,
         link: image.file_page || "https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day"
       }));
@@ -241,6 +241,15 @@ const DAILY_SOURCES = {
     }
   }
 };
+
+// Commons originals can be 20MB+, so use a resized copy. Wikimedia only renders standard thumbnail
+// widths (2560 is refused), so pick 3840 or 1920 by rewriting the width in the feed's thumbnail URL.
+function wikiPhotoUrl(image) {
+  const w = image.image?.width || 0, size = w > 3840 ? 3840 : w > 1920 ? 1920 : 0;
+  const thumb = image.thumbnail?.source;
+  if (size && thumb && /\/\d+px-/.test(thumb)) return thumb.replace(/\/\d+px-/, `/${size}px-`);
+  return image.image?.source || thumb;
+}
 
 // Today's list for the chosen source, fetched at most once per local day (also prefetched at midnight
 // by the background worker). If the source is down or has nothing usable, the next source is tried;
