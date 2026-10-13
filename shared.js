@@ -223,7 +223,7 @@ const DAILY_SOURCES = {
       if (!s.unsplashKey) throw new Error("add your free Unsplash Access Key in settings");
       const q = new URLSearchParams({ query: s.unsplashTopic || "nature", count: 8, orientation: "landscape", content_filter: "high", client_id: s.unsplashKey });
       const photos = await getJSON(`https://api.unsplash.com/photos/random?${q}`);
-      const ref = "utm_source=customizable_tab&utm_medium=referral"; // Unsplash attribution requirement
+      const ref = "utm_source=tabscape&utm_medium=referral"; // Unsplash attribution requirement
       return photos.map((p) => ({
         url: `${p.urls.raw}&w=2560&q=80&fm=jpg&fit=crop`,
         title: p.alt_description || p.description || "",

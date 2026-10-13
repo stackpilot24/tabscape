@@ -1,4 +1,4 @@
-# Customizable TAB (Chrome Extension)
+# Tabscape (Chrome Extension)
 
 A minimal, fast, and feature-rich New Tab replacement for Google Chrome. Turn your browser start page into an organized dashboard with direct-launch quick links, automated daily 4K wallpapers, an integrated search bar, and a dedicated backend Admin Panel to keep configuration separate from your daily view.
 
@@ -43,7 +43,7 @@ A minimal, fast, and feature-rich New Tab replacement for Google Chrome. Turn yo
 ## 📂 Architecture & File Structure
 
 ```text
-customizable-tab/
+tabscape/
 ├── manifest.json         # Manifest V3 (name/description come from _locales)
 ├── _locales/{en,hi}/     # Store name & description (English, Hindi)
 ├── newtab.html/.css/.js  # Dashboard: links, dock, search + suggestions, focus line, palette, drawer
@@ -69,7 +69,7 @@ customizable-tab/
 
 1. **Clone or Download:**
    ```bash
-   git clone https://github.com/your-username/customizable-tab.git
+   git clone https://github.com/your-username/tabscape.git
    ```
 2. **Open Extensions Manager:**
    In Google Chrome, navigate to:
@@ -79,7 +79,7 @@ customizable-tab/
 3. **Enable Developer Mode:**
    Toggle the **Developer mode** switch in the top-right corner.
 4. **Load Unpacked:**
-   Click **Load unpacked** in the top-left corner and select the `customizable-tab/` folder.
+   Click **Load unpacked** in the top-left corner and select the `tabscape/` folder.
 5. **Open a New Tab:**
    Press `Ctrl + T` (or `Cmd + T` on macOS) to see your custom dashboard.
 
@@ -90,7 +90,7 @@ customizable-tab/
 ```json
 {
   "manifest_version": 3,
-  "name": "Customizable TAB",
+  "name": "Tabscape – Live 3D New Tab",
   "version": "1.0.0",
   "description": "A minimal, customizable new tab dashboard with direct deep links and daily wallpapers.",
   "chrome_url_overrides": {
@@ -178,7 +178,7 @@ async function loadDailyWallpaper() {
 ## 🛠 Build
 
 ```bash
-python build.py               # -> .dist/customizable-tab-<version>.zip
+python build.py               # -> .dist/tabscape-<version>.zip
 python build.py --bump patch  # bump manifest version, then build
 ```
 

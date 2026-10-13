@@ -1,4 +1,4 @@
-# Store Listing Kit — Customizable TAB 1.3.0
+# Store Listing Kit — Tabscape 1.3.0
 
 Everything needed to submit to the Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons.
 
@@ -6,8 +6,8 @@ Everything needed to submit to the Chrome Web Store, Microsoft Edge Add-ons and 
 
 ```bash
 python build.py --target all
-# .dist/customizable-tab-1.3.0.zip          -> Chrome Web Store, Edge Add-ons, Opera
-# .dist/customizable-tab-1.3.0-firefox.zip  -> addons.mozilla.org
+# .dist/tabscape-1.3.0.zip          -> Chrome Web Store, Edge Add-ons, Opera
+# .dist/tabscape-1.3.0-firefox.zip  -> addons.mozilla.org
 # .dist/demo/                               -> static web demo (GitHub Pages / Netlify)
 ```
 
@@ -29,7 +29,7 @@ python build.py --target all
 
 ## Listing text: English
 
-**Name:** Customizable TAB
+**Name:** Tabscape – Live 3D New Tab
 
 **Short description (≤132 chars):**
 Live 3D wallpapers, an app dock, drag-anywhere widgets and focus tools on every new tab.

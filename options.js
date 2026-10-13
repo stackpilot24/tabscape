@@ -408,7 +408,7 @@ $("export").onclick = () => {
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
   const a = el("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `customizable-tab-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `tabscape-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
 };
 $("import").onchange = async (e) => {

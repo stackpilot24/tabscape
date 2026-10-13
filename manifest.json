@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "short_name": "Custom TAB",
+  "short_name": "Tabscape",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "version": "1.3.0",

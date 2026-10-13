@@ -36,5 +36,5 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
-print(f"Customizable TAB dev server: http://localhost:{PORT}/newtab.html  (settings: /options.html)")
+print(f"Tabscape dev server: http://localhost:{PORT}/newtab.html  (settings: /options.html)")
 http.server.ThreadingHTTPServer(("localhost", PORT), Handler).serve_forever()

@@ -1,8 +1,8 @@
-# Privacy Policy — Customizable TAB
+# Privacy Policy — Tabscape
 
 _Last updated: 12 October 2026_
 
-Customizable TAB replaces your browser's new tab page. **The developer does not collect, store, sell or share any of your data.** There are no accounts, no analytics and no tracking.
+Tabscape replaces your browser's new tab page. **The developer does not collect, store, sell or share any of your data.** There are no accounts, no analytics and no tracking.
 
 ## What is stored, and where
 

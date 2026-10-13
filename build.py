@@ -1,8 +1,8 @@
 """Package the extension.
 
 Usage:
-  python build.py                    # Chrome / Edge / Opera  -> .dist/customizable-tab-<version>.zip
-  python build.py --target firefox   # Firefox (AMO)          -> .dist/customizable-tab-<version>-firefox.zip
+  python build.py                    # Chrome / Edge / Opera  -> .dist/tabscape-<version>.zip
+  python build.py --target firefox   # Firefox (AMO)          -> .dist/tabscape-<version>-firefox.zip
   python build.py --target demo      # static web demo        -> .dist/demo/ (ready for GitHub Pages)
   python build.py --target all       # all of the above
   python build.py --bump patch       # bump 1.3.0 -> 1.3.1 in manifest.json first (also: minor, major)
@@ -47,7 +47,7 @@ def write_zip(out, manifest_obj):
 
 
 def build_chrome():
-    write_zip(DIST / f"customizable-tab-{version}.zip", manifest)
+    write_zip(DIST / f"tabscape-{version}.zip", manifest)
 
 
 def build_firefox():
@@ -55,7 +55,7 @@ def build_firefox():
     m = json.loads(json.dumps(manifest))
     m["background"] = {"scripts": ["apps.js", "shared.js", "background.js"]}
     m["browser_specific_settings"] = {"gecko": {"id": GECKO_ID, "strict_min_version": "128.0"}}
-    write_zip(DIST / f"customizable-tab-{version}-firefox.zip", m)
+    write_zip(DIST / f"tabscape-{version}-firefox.zip", m)
 
 
 def build_demo():
@@ -71,7 +71,7 @@ def build_demo():
             shutil.copy2(f, dest)
     (out / "dev").mkdir(exist_ok=True)
     shutil.copy2(ROOT / "dev" / "chrome-stub.js", out / "dev" / "chrome-stub.js")
-    (out / "index.html").write_text('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=newtab.html"><title>Customizable TAB demo</title>', encoding="utf-8")
+    (out / "index.html").write_text('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=newtab.html"><title>Tabscape demo</title>', encoding="utf-8")
     print(f"Built {out.relative_to(ROOT)}/ (open index.html via any static host)")
 
 
