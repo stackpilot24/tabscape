@@ -1,5 +1,11 @@
 # Tabscape (Chrome Extension)
 
+[![Add to Chrome](https://img.shields.io/badge/Add%20to%20Chrome-Free-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/hmijjdjbfbhbfdbnohcaaophphbjjmgl)
+
+**[Install Tabscape from the Chrome Web Store](https://chromewebstore.google.com/detail/hmijjdjbfbhbfdbnohcaaophphbjjmgl)**: free, no account needed. Then open a new tab.
+
+![Tabscape new tab with a live 3D wallpaper, quick links, widgets and the app dock](store/screenshots/home.png)
+
 A minimal, fast, and feature-rich New Tab replacement for Google Chrome. Turn your browser start page into an organized dashboard with direct-launch quick links, automated daily 4K wallpapers, an integrated search bar, and a dedicated backend Admin Panel to keep configuration separate from your daily view.
 
 ---
@@ -69,7 +75,7 @@ tabscape/
 
 1. **Clone or Download:**
    ```bash
-   git clone https://github.com/your-username/tabscape.git
+   git clone https://github.com/stackpilot24/tabscape.git
    ```
 2. **Open Extensions Manager:**
    In Google Chrome, navigate to:
